@@ -25,7 +25,12 @@ export function redirectWithMessage(
   message: string,
 ): never {
   const params = new URLSearchParams({ [type]: message });
-  redirect(`${path}?${params.toString()}`);
+  const hashIndex = path.indexOf("#");
+  const basePath = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const hash = hashIndex >= 0 ? path.slice(hashIndex) : "";
+  const separator = basePath.includes("?") ? "&" : "?";
+
+  redirect(`${basePath}${separator}${params.toString()}${hash}`);
 }
 
 export async function getAuthedSupabase() {

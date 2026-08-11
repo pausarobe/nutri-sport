@@ -3,6 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  calculateMedian,
+  formatAnthroNumber,
+  GIRTH_FIELDS,
+  hasAllMeasurements,
+  DIAMETER_FIELDS,
+  SKINFOLD_FIELDS,
+} from "@/lib/anthropometry";
+import {
+  calculateEnergyPlan,
+  DEFAULT_ENERGY_SETTINGS,
+  DEFAULT_MEAL_DISTRIBUTION,
+  normalizeThermalEffect,
+  type EnergySettings,
+  type ExerciseSession,
+} from "@/lib/nutrition-plan";
+import {
   formString,
   getAuthedSupabase,
   optionalFormNumber,
@@ -12,6 +28,7 @@ import {
 import type { ActivityLevel, ClientSex } from "@/lib/database.types";
 
 const FILE_BUCKET = "client-files";
+const clientTabPath = (clientId: string, tab: string) => `/clients/${clientId}?tab=${tab}`;
 const CLIENT_SEX_VALUES = [
   "female",
   "male",
@@ -26,8 +43,8 @@ const ACTIVITY_LEVEL_VALUES = [
   "very_high",
 ] satisfies ActivityLevel[];
 
-function optionalClientSex(formData: FormData) {
-  const value = optionalFormString(formData, "sex");
+function optionalClientSex(formData: FormData, key = "sex") {
+  const value = optionalFormString(formData, key);
   return CLIENT_SEX_VALUES.includes(value as ClientSex)
     ? (value as ClientSex)
     : null;
@@ -57,6 +74,86 @@ function clientPayload(formData: FormData) {
   };
 }
 
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function positiveFormNumber(formData: FormData, key: string) {
+  const value = optionalFormNumber(formData, key);
+  return value && value > 0 ? value : null;
+}
+
+function positiveNumber(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value ?? "");
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function measurementGroup(formData: FormData, prefix: string, fields: typeof SKINFOLD_FIELDS) {
+  return Object.fromEntries(
+    fields.map((field) => {
+      const value = calculateMedian([
+        optionalFormNumber(formData, `${prefix}_${field.key}_1`),
+        optionalFormNumber(formData, `${prefix}_${field.key}_2`),
+        optionalFormNumber(formData, `${prefix}_${field.key}_3`),
+      ]);
+
+      return [field.key, formatAnthroNumber(value)];
+    }),
+  );
+}
+
+function energySettingsPayload(formData: FormData): EnergySettings {
+  const method = formString(formData, "energy_method") === "harris" ? "harris" : "cunningham";
+  const rawSessions = formString(formData, "exercise_sessions");
+  let exerciseSessions: ExerciseSession[] = DEFAULT_ENERGY_SETTINGS.exerciseSessions;
+
+  try {
+    const parsed = JSON.parse(rawSessions);
+
+    if (Array.isArray(parsed)) {
+      const sessions = parsed.map((row) => ({
+        mets: positiveNumber(row?.mets),
+        durationMin: positiveNumber(row?.durationMin),
+        daysPerWeek: positiveNumber(row?.daysPerWeek),
+      }));
+
+      if (sessions.length) exerciseSessions = sessions;
+    }
+  } catch {
+    exerciseSessions = DEFAULT_ENERGY_SETTINGS.exerciseSessions;
+  }
+
+  return {
+    method,
+    leanMassKg: positiveFormNumber(formData, "lean_mass_kg"),
+    activityFactor:
+      positiveFormNumber(formData, "activity_factor") ??
+      DEFAULT_ENERGY_SETTINGS.activityFactor,
+    thermalEffect: normalizeThermalEffect(positiveFormNumber(formData, "thermal_effect")),
+    exerciseSessions,
+    calorieTarget: positiveFormNumber(formData, "calorie_target"),
+    proteinPct:
+      positiveFormNumber(formData, "protein_pct") ?? DEFAULT_ENERGY_SETTINGS.proteinPct,
+    carbsPct: positiveFormNumber(formData, "carbs_pct") ?? DEFAULT_ENERGY_SETTINGS.carbsPct,
+    fatPct: positiveFormNumber(formData, "fat_pct") ?? DEFAULT_ENERGY_SETTINGS.fatPct,
+  };
+}
+
+function mealDistributionPayload(formData: FormData) {
+  return DEFAULT_MEAL_DISTRIBUTION.map((meal, index) => ({
+    name: formString(formData, `meal_${index}_name`) || meal.name,
+    pct: optionalFormNumber(formData, `meal_${index}_pct`) ?? meal.pct,
+  }));
+}
+
+function databaseSetupMessage(message: string | undefined) {
+  if (message?.includes("schema cache")) {
+    return "Falta aplicar la migracion de Supabase con las tablas nuevas. Ejecuta el SQL de supabase/migrations/20260811_add_client_detail_sections.sql.";
+  }
+
+  return message ?? "No se pudo guardar.";
+}
+
 export async function createNutritionClient(formData: FormData) {
   const { supabase, userId } = await getAuthedSupabase();
   const payload = clientPayload(formData);
@@ -83,12 +180,21 @@ export async function createNutritionClient(formData: FormData) {
     .from("plans")
     .insert({ user_id: userId, client_id: client.id, content: "" });
 
+  if (payload.weight_kg) {
+    await supabase.from("client_weight_logs").insert({
+      user_id: userId,
+      client_id: client.id,
+      measured_at: todayIsoDate(),
+      weight_kg: payload.weight_kg,
+    });
+  }
+
   revalidatePath("/clients");
   redirect(`/clients/${client.id}`);
 }
 
 export async function updateNutritionClient(formData: FormData) {
-  const { supabase } = await getAuthedSupabase();
+  const { supabase, userId } = await getAuthedSupabase();
   const clientId = formString(formData, "client_id");
   const payload = clientPayload(formData);
 
@@ -102,6 +208,11 @@ export async function updateNutritionClient(formData: FormData) {
     );
   }
 
+  const { data: previousClient } = await supabase
+    .from("clients")
+    .select("weight_kg")
+    .eq("id", clientId)
+    .maybeSingle();
   const { error } = await supabase
     .from("clients")
     .update(payload)
@@ -111,9 +222,21 @@ export async function updateNutritionClient(formData: FormData) {
     redirectWithMessage(`/clients/${clientId}/edit`, "error", error.message);
   }
 
+  if (
+    payload.weight_kg &&
+    Math.abs(payload.weight_kg - Number(previousClient?.weight_kg ?? 0)) > 0.01
+  ) {
+    await supabase.from("client_weight_logs").insert({
+      user_id: userId,
+      client_id: clientId,
+      measured_at: todayIsoDate(),
+      weight_kg: payload.weight_kg,
+    });
+  }
+
   revalidatePath("/clients");
   revalidatePath(`/clients/${clientId}`);
-  redirectWithMessage(`/clients/${clientId}`, "success", "Client updated.");
+  redirectWithMessage(clientTabPath(clientId, "fitxa"), "success", "Client updated.");
 }
 
 export async function deleteNutritionClient(formData: FormData) {
@@ -135,7 +258,7 @@ export async function deleteNutritionClient(formData: FormData) {
   const { error } = await supabase.from("clients").delete().eq("id", clientId);
 
   if (error) {
-    redirectWithMessage(`/clients/${clientId}`, "error", error.message);
+    redirectWithMessage(clientTabPath(clientId, "danger"), "error", databaseSetupMessage(error.message));
   }
 
   revalidatePath("/clients");
@@ -146,24 +269,257 @@ export async function savePlan(formData: FormData) {
   const { supabase, userId } = await getAuthedSupabase();
   const clientId = formString(formData, "client_id");
   const content = formString(formData, "content");
+  const settings = energySettingsPayload(formData);
+  const macroTotal = settings.proteinPct + settings.carbsPct + settings.fatPct;
 
   if (!clientId) redirect("/clients");
+
+  if (Math.abs(macroTotal - 100) > 1) {
+    redirectWithMessage(
+      clientTabPath(clientId, "plan"),
+      "error",
+      "La suma de macronutrientes debe ser 100%.",
+    );
+  }
+
+  const [clientMetricsResult, latestWeightResult] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("weight_kg,updated_at")
+      .eq("id", clientId)
+      .maybeSingle(),
+    supabase
+      .from("client_weight_logs")
+      .select("weight_kg,created_at")
+      .eq("client_id", clientId)
+      .order("measured_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const clientWeight = positiveNumber(clientMetricsResult.data?.weight_kg);
+  const loggedWeight = positiveNumber(latestWeightResult.data?.weight_kg);
+  const clientWeightUpdatedAt = clientMetricsResult.data?.updated_at
+    ? new Date(clientMetricsResult.data.updated_at).getTime()
+    : 0;
+  const loggedWeightCreatedAt = latestWeightResult.data?.created_at
+    ? new Date(latestWeightResult.data.created_at).getTime()
+    : 0;
+  const currentWeightKg =
+    clientWeight && loggedWeight
+      ? clientWeightUpdatedAt >= loggedWeightCreatedAt
+        ? clientWeight
+        : loggedWeight
+      : clientWeight ?? loggedWeight ?? positiveFormNumber(formData, "reference_weight_kg");
+  const energy = calculateEnergyPlan({
+    settings,
+    weightKg: currentWeightKg,
+    heightCm: positiveFormNumber(formData, "reference_height_cm"),
+    age: positiveFormNumber(formData, "reference_age"),
+    sex: optionalClientSex(formData, "reference_sex"),
+  });
 
   const { error } = await supabase.from("plans").upsert(
     {
       user_id: userId,
       client_id: clientId,
       content,
+      calories: energy.calories,
+      protein_g: energy.proteinG,
+      carbs_g: energy.carbsG,
+      fat_g: energy.fatG,
+      energy_settings: settings,
+      meal_distribution: mealDistributionPayload(formData),
     },
     { onConflict: "client_id" },
   );
 
   if (error) {
-    redirectWithMessage(`/clients/${clientId}`, "error", error.message);
+    redirectWithMessage(clientTabPath(clientId, "plan"), "error", databaseSetupMessage(error.message));
   }
 
   revalidatePath(`/clients/${clientId}`);
-  redirectWithMessage(`/clients/${clientId}`, "success", "Plan saved.");
+  redirectWithMessage(clientTabPath(clientId, "plan"), "success", "Plan saved.");
+}
+
+export async function addClientWeight(formData: FormData) {
+  const { supabase, userId } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const measuredAt = optionalFormString(formData, "measured_at") ?? todayIsoDate();
+  const weightKg = positiveFormNumber(formData, "weight_kg");
+
+  if (!clientId) redirect("/clients");
+
+  if (!weightKg) {
+    redirectWithMessage(clientTabPath(clientId, "peso"), "error", "Introduce un peso valido.");
+  }
+
+  const { error } = await supabase.from("client_weight_logs").insert({
+    user_id: userId,
+    client_id: clientId,
+    measured_at: measuredAt,
+    weight_kg: weightKg,
+  });
+
+  if (error) {
+    redirectWithMessage(clientTabPath(clientId, "peso"), "error", databaseSetupMessage(error.message));
+  }
+
+  await supabase.from("clients").update({ weight_kg: weightKg }).eq("id", clientId);
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(clientTabPath(clientId, "peso"), "success", "Peso registrado.");
+}
+
+export async function addClientAnthropometry(formData: FormData) {
+  const { supabase, userId } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const measuredAt = optionalFormString(formData, "measured_at") ?? todayIsoDate();
+  const heightCm = positiveFormNumber(formData, "height_cm");
+  const weightKg = positiveFormNumber(formData, "weight_kg");
+  const sex = optionalClientSex(formData);
+  const skinfolds = measurementGroup(formData, "skinfolds", SKINFOLD_FIELDS);
+  const girths = measurementGroup(formData, "girths", GIRTH_FIELDS);
+  const diameters = measurementGroup(formData, "diameters", DIAMETER_FIELDS);
+
+  if (!clientId) redirect("/clients");
+
+  if (!heightCm || !weightKg) {
+    redirectWithMessage(
+      clientTabPath(clientId, "antropometria"),
+      "error",
+      "Completa peso y altura de la valoracion antropometrica.",
+    );
+  }
+
+  if (
+    !hasAllMeasurements(skinfolds, SKINFOLD_FIELDS) ||
+    !hasAllMeasurements(girths, GIRTH_FIELDS) ||
+    !hasAllMeasurements(diameters, DIAMETER_FIELDS)
+  ) {
+    redirectWithMessage(
+      clientTabPath(clientId, "antropometria"),
+      "error",
+      "Completa todas las medidas antropometricas.",
+    );
+  }
+
+  const { error } = await supabase.from("client_anthropometry_assessments").insert({
+    user_id: userId,
+    client_id: clientId,
+    measured_at: measuredAt,
+    height_cm: heightCm,
+    weight_kg: weightKg,
+    sex,
+    skinfolds,
+    girths,
+    diameters,
+    notes: optionalFormString(formData, "notes"),
+  });
+
+  if (error) {
+    redirectWithMessage(clientTabPath(clientId, "antropometria"), "error", error.message);
+  }
+
+  await Promise.all([
+    supabase.from("clients").update({ height_cm: heightCm, weight_kg: weightKg }).eq("id", clientId),
+    supabase.from("client_weight_logs").insert({
+      user_id: userId,
+      client_id: clientId,
+      measured_at: measuredAt,
+      weight_kg: weightKg,
+    }),
+  ]);
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(clientTabPath(clientId, "antropometria"), "success", "Antropometria guardada.");
+}
+
+export async function addClientAppointment(formData: FormData) {
+  const { supabase, userId } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const scheduledDate = optionalFormString(formData, "scheduled_date");
+  const appointmentType =
+    optionalFormString(formData, "appointment_type") ?? "Revision mensual";
+
+  if (!clientId) redirect("/clients");
+
+  if (!scheduledDate) {
+    redirectWithMessage(clientTabPath(clientId, "citas"), "error", "Selecciona una fecha para la cita.");
+  }
+
+  const { error } = await supabase.from("client_appointments").insert({
+    user_id: userId,
+    client_id: clientId,
+    scheduled_date: scheduledDate,
+    scheduled_time: optionalFormString(formData, "scheduled_time"),
+    appointment_type: appointmentType,
+    notes: optionalFormString(formData, "notes"),
+  });
+
+  if (error) {
+    redirectWithMessage(clientTabPath(clientId, "citas"), "error", error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(clientTabPath(clientId, "citas"), "success", "Cita creada.");
+}
+
+async function setClientAppointmentCompleted(formData: FormData, completed: boolean) {
+  const { supabase } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const appointmentId = formString(formData, "appointment_id");
+
+  if (!clientId || !appointmentId) redirect("/clients");
+
+  const { error } = await supabase
+    .from("client_appointments")
+    .update({ completed })
+    .eq("id", appointmentId);
+
+  if (error) {
+    redirectWithMessage(clientTabPath(clientId, "citas"), "error", error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(
+    clientTabPath(clientId, "citas"),
+    "success",
+    completed ? "Cita completada." : "Cita reabierta.",
+  );
+}
+
+export async function completeClientAppointment(formData: FormData) {
+  await setClientAppointmentCompleted(formData, true);
+}
+
+export async function reopenClientAppointment(formData: FormData) {
+  await setClientAppointmentCompleted(formData, false);
+}
+
+export async function deleteClientAppointment(formData: FormData) {
+  const { supabase } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const appointmentId = formString(formData, "appointment_id");
+
+  if (!clientId || !appointmentId) redirect("/clients");
+
+  const { error } = await supabase
+    .from("client_appointments")
+    .delete()
+    .eq("id", appointmentId);
+
+  if (error) {
+    redirectWithMessage(clientTabPath(clientId, "citas"), "error", error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(clientTabPath(clientId, "citas"), "success", "Cita eliminada.");
 }
 
 export async function addClientNote(formData: FormData) {
@@ -174,7 +530,7 @@ export async function addClientNote(formData: FormData) {
   if (!clientId) redirect("/clients");
 
   if (!content) {
-    redirectWithMessage(`/clients/${clientId}`, "error", "Note cannot be empty.");
+    redirectWithMessage(clientTabPath(clientId, "notas"), "error", "Note cannot be empty.");
   }
 
   const { error } = await supabase.from("client_notes").insert({
@@ -184,11 +540,11 @@ export async function addClientNote(formData: FormData) {
   });
 
   if (error) {
-    redirectWithMessage(`/clients/${clientId}`, "error", error.message);
+    redirectWithMessage(clientTabPath(clientId, "notas"), "error", error.message);
   }
 
   revalidatePath(`/clients/${clientId}`);
-  redirectWithMessage(`/clients/${clientId}`, "success", "Note added.");
+  redirectWithMessage(clientTabPath(clientId, "notas"), "success", "Note added.");
 }
 
 export async function deleteClientNote(formData: FormData) {
@@ -201,11 +557,11 @@ export async function deleteClientNote(formData: FormData) {
   const { error } = await supabase.from("client_notes").delete().eq("id", noteId);
 
   if (error) {
-    redirectWithMessage(`/clients/${clientId}`, "error", error.message);
+    redirectWithMessage(clientTabPath(clientId, "notas"), "error", error.message);
   }
 
   revalidatePath(`/clients/${clientId}`);
-  redirectWithMessage(`/clients/${clientId}`, "success", "Note deleted.");
+  redirectWithMessage(clientTabPath(clientId, "notas"), "success", "Note deleted.");
 }
 
 export async function uploadClientFile(formData: FormData) {
@@ -216,7 +572,7 @@ export async function uploadClientFile(formData: FormData) {
   if (!clientId) redirect("/clients");
 
   if (!(file instanceof File) || file.size === 0) {
-    redirectWithMessage(`/clients/${clientId}`, "error", "Choose a file first.");
+    redirectWithMessage(clientTabPath(clientId, "archivos"), "error", "Choose a file first.");
   }
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
@@ -230,7 +586,7 @@ export async function uploadClientFile(formData: FormData) {
     });
 
   if (uploadError) {
-    redirectWithMessage(`/clients/${clientId}`, "error", uploadError.message);
+    redirectWithMessage(clientTabPath(clientId, "archivos"), "error", uploadError.message);
   }
 
   const { error } = await supabase.from("client_files").insert({
@@ -245,11 +601,11 @@ export async function uploadClientFile(formData: FormData) {
 
   if (error) {
     await supabase.storage.from(FILE_BUCKET).remove([path]);
-    redirectWithMessage(`/clients/${clientId}`, "error", error.message);
+    redirectWithMessage(clientTabPath(clientId, "archivos"), "error", error.message);
   }
 
   revalidatePath(`/clients/${clientId}`);
-  redirectWithMessage(`/clients/${clientId}`, "success", "File uploaded.");
+  redirectWithMessage(clientTabPath(clientId, "archivos"), "success", "File uploaded.");
 }
 
 export async function deleteClientFile(formData: FormData) {
@@ -266,16 +622,16 @@ export async function deleteClientFile(formData: FormData) {
     .single();
 
   if (lookupError || !file) {
-    redirectWithMessage(`/clients/${clientId}`, "error", "File not found.");
+    redirectWithMessage(clientTabPath(clientId, "archivos"), "error", "File not found.");
   }
 
   await supabase.storage.from(FILE_BUCKET).remove([file.path]);
   const { error } = await supabase.from("client_files").delete().eq("id", fileId);
 
   if (error) {
-    redirectWithMessage(`/clients/${clientId}`, "error", error.message);
+    redirectWithMessage(clientTabPath(clientId, "archivos"), "error", error.message);
   }
 
   revalidatePath(`/clients/${clientId}`);
-  redirectWithMessage(`/clients/${clientId}`, "success", "File deleted.");
+  redirectWithMessage(clientTabPath(clientId, "archivos"), "success", "File deleted.");
 }

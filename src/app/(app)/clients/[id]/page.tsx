@@ -4,28 +4,58 @@ import {
   Activity,
   ArrowLeft,
   Calendar,
+  Clock,
   Download,
   Dumbbell,
   Edit3,
   FileText,
   Mail,
   Phone,
+  Plus,
   Ruler,
-  Scale,
   Target,
   UserRound,
+  type LucideIcon,
 } from "lucide-react";
+import {
+  calculateAnthropometry,
+  DIAMETER_FIELDS,
+  GIRTH_FIELDS,
+  measurementMapFromJson,
+  SKINFOLD_FIELDS,
+  type AnthropometryResult,
+  type MeasurementField,
+  type MeasurementMap,
+} from "@/lib/anthropometry";
+import {
+  calculateEnergyPlan,
+  energySettingsFromJson,
+  mealDistributionFromJson,
+} from "@/lib/nutrition-plan";
+import { EmptyState } from "@/components/empty-state";
 import { Notice } from "@/components/notice";
+import { NutritionPlanForm } from "@/components/nutrition-plan-form";
+import { PrintButton } from "@/components/print-button";
 import { SubmitButton } from "@/components/submit-button";
 import { createClient } from "@/lib/supabase/server";
-import type { ClientFile } from "@/lib/database.types";
+import type {
+  ClientAppointment,
+  ClientFile,
+  ClientSex,
+  ClientWeightLog,
+} from "@/lib/database.types";
 import { fileSizeLabel, formatDate, initials } from "@/lib/format";
 import {
+  addClientAnthropometry,
+  addClientAppointment,
   addClientNote,
+  addClientWeight,
+  completeClientAppointment,
+  deleteClientAppointment,
   deleteClientFile,
   deleteClientNote,
   deleteNutritionClient,
-  savePlan,
+  reopenClientAppointment,
   uploadClientFile,
 } from "../actions";
 
@@ -34,6 +64,8 @@ type ClientDetailPageProps = {
   searchParams?: Promise<{
     error?: string;
     success?: string;
+    tab?: string;
+    anthropometry?: string;
   }>;
 };
 
@@ -41,20 +73,83 @@ type SignedFile = ClientFile & {
   signedUrl?: string;
 };
 
-const sexLabels = {
-  female: "Female",
-  male: "Male",
-  non_binary: "Non-binary",
-  prefer_not_to_say: "Prefer not to say",
+type WeightPoint = Pick<
+  ClientWeightLog,
+  "id" | "created_at" | "measured_at" | "weight_kg"
+>;
+
+const inputClass =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition cursor-pointer focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
+const labelClass =
+  "text-xs font-semibold uppercase tracking-wide text-slate-400 print:text-[7px]";
+const cardClass = "rounded-lg border border-slate-200 bg-white p-5 shadow-sm";
+const mutedTileClass = "rounded-lg border border-slate-200 bg-slate-50 p-4";
+
+const sexLabels: Record<ClientSex, string> = {
+  female: "Mujer",
+  male: "Hombre",
+  non_binary: "No binario",
+  prefer_not_to_say: "Prefiere no decirlo",
 };
 
 const activityLabels = {
-  sedentary: "Sedentary",
-  light: "Light",
-  moderate: "Moderate",
-  high: "High",
-  very_high: "Very high",
+  sedentary: "Sedentario",
+  light: "Ligero",
+  moderate: "Moderado",
+  high: "Alto",
+  very_high: "Muy alto",
 };
+
+const appointmentTypes = [
+  "Revision mensual",
+  "Antropometria",
+  "Primera visita",
+  "Consulta",
+  "Seguimiento",
+];
+
+const clientTabs = [
+  { key: "fitxa", label: "Fitxa" },
+  { key: "peso", label: "Peso" },
+  { key: "plan", label: "Plan nutricional" },
+  { key: "antropometria", label: "Antropometria" },
+  { key: "citas", label: "Citas" },
+  { key: "informe", label: "Informe" },
+  { key: "notas", label: "Notas" },
+  { key: "archivos", label: "Archivos" },
+  { key: "danger", label: "Eliminar" },
+] as const;
+
+const months = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
+type ClientTab = (typeof clientTabs)[number]["key"];
+
+function resolveClientTab(value: string | undefined): ClientTab {
+  return clientTabs.some((tab) => tab.key === value)
+    ? (value as ClientTab)
+    : "fitxa";
+}
+
+function clientTabHref(clientId: string, tab: ClientTab) {
+  return `/clients/${clientId}?tab=${tab}`;
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function clientAge(birthDate: string | null) {
   if (!birthDate) return null;
@@ -77,15 +172,887 @@ function clientBmi(weightKg: number | null, heightCm: number | null) {
   return (weightKg / (heightM * heightM)).toFixed(1);
 }
 
+function numberLabel(value: number | null | undefined, unit = "") {
+  if (value === null || value === undefined) return "--";
+  const label = Number(value).toFixed(1).replace(/\.0$/, "");
+  return `${label}${unit ? ` ${unit}` : ""}`;
+}
+
+function dateParts(value: string) {
+  const [, month, day] = value.split("-");
+  const monthIndex = Math.max(0, Number(month) - 1);
+  return {
+    month: months[monthIndex] ?? "",
+    day: day ?? "",
+  };
+}
+
+function isMissingSchemaTableError(
+  error: { message?: string } | null | undefined,
+) {
+  return (
+    error?.message?.includes("schema cache") &&
+    error.message.includes("public.")
+  );
+}
+
+function migrationPendingMessage(
+  error: { message?: string } | null | undefined,
+) {
+  if (!isMissingSchemaTableError(error)) return error?.message;
+
+  return "Falta aplicar la migracion de Supabase con las tablas nuevas de pesos, antropometria y citas.";
+}
+
+function SectionTitle({
+  title,
+  action,
+  description,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  description?: string;
+}) {
+  return (
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 className="font-semibold text-slate-950">{title}</h2>
+        {description ? (
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  color = "#2d7a3a",
+  helper,
+}: {
+  label: string;
+  value: React.ReactNode;
+  color?: string;
+  helper?: React.ReactNode;
+}) {
+  return (
+    <div className={`${mutedTileClass} print:p-1.5`}>
+      <div className={labelClass}>{label}</div>
+      <div className="mt-1 text-xl font-semibold print:text-sm" style={{ color }}>
+        {value}
+      </div>
+      {helper ? (
+        <div className="mt-1 text-xs text-slate-500 print:text-[9px]">{helper}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function DateBadge({ date }: { date: string }) {
+  const parts = dateParts(date);
+
+  return (
+    <div className="min-w-12 rounded-lg bg-emerald-50 px-3 py-2 text-center">
+      <div className={labelClass}>{parts.month}</div>
+      <div className="text-lg font-semibold leading-none text-emerald-800">
+        {parts.day}
+      </div>
+    </div>
+  );
+}
+
+function WeightChart({ points }: { points: WeightPoint[] }) {
+  if (!points.length) return null;
+
+  const values = points.map((point) => Number(point.weight_kg));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const width = 660;
+  const height = 200;
+  const left = 44;
+  const right = 16;
+  const top = 20;
+  const bottom = 32;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const toX = (index: number) =>
+    points.length === 1
+      ? left + plotWidth / 2
+      : left + (index / (points.length - 1)) * plotWidth;
+  const toY = (value: number) =>
+    top + plotHeight - ((value - min) / range) * plotHeight;
+  const coords = values.map((value, index) => [toX(index), toY(value)]);
+  let path = `M${coords[0][0]},${coords[0][1]}`;
+
+  for (let index = 1; index < coords.length; index += 1) {
+    const controlX = (coords[index - 1][0] + coords[index][0]) / 2;
+    path += ` C${controlX},${coords[index - 1][1]} ${controlX},${coords[index][1]} ${coords[index][0]},${coords[index][1]}`;
+  }
+
+  const area =
+    points.length > 1
+      ? `${path} L${coords[coords.length - 1][0]},${top + plotHeight} L${coords[0][0]},${top + plotHeight} Z`
+      : "";
+  const trend = values[values.length - 1] < values[0] ? "#2d7a3a" : "#e05252";
+  const ticks = Array.from(
+    { length: 4 },
+    (_, index) => min + (range / 3) * index,
+  );
+  const labelStep = Math.max(1, Math.ceil(points.length / 6));
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="block">
+      <defs>
+        <linearGradient id="weight-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={trend} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={trend} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {ticks.map((tick, index) => (
+        <g key={tick}>
+          <line
+            x1={left}
+            y1={toY(tick)}
+            x2={width - right}
+            y2={toY(tick)}
+            stroke="#dde3ed"
+            strokeWidth="1"
+            strokeDasharray={index === 0 ? "" : "4,3"}
+          />
+          <text
+            x={left - 5}
+            y={toY(tick) + 4}
+            textAnchor="end"
+            fill="#8fa0b8"
+            fontSize="10"
+          >
+            {tick.toFixed(1)}
+          </text>
+        </g>
+      ))}
+      {points.map((point, index) => {
+        if (index % labelStep !== 0 && index !== points.length - 1) return null;
+        return (
+          <text
+            key={point.id}
+            x={toX(index)}
+            y={height - 6}
+            textAnchor="middle"
+            fill="#8fa0b8"
+            fontSize="9"
+          >
+            {formatDate(point.measured_at).slice(0, 6)}
+          </text>
+        );
+      })}
+      {area ? <path d={area} fill="url(#weight-gradient)" /> : null}
+      {points.length > 1 ? (
+        <path
+          d={path}
+          fill="none"
+          stroke={trend}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+      ) : null}
+      {coords.map(([x, y], index) => (
+        <g key={`${x}-${y}`}>
+          {index === coords.length - 1 ? (
+            <circle cx={x} cy={y} r="9" fill={trend} opacity="0.12" />
+          ) : null}
+          <circle
+            cx={x}
+            cy={y}
+            r={index === coords.length - 1 ? 5 : 3}
+            fill={index === coords.length - 1 ? trend : "#fff"}
+            stroke={trend}
+            strokeWidth={index === coords.length - 1 ? 0 : 1.5}
+          />
+          {index === coords.length - 1 || points.length <= 8 ? (
+            <text
+              x={x}
+              y={y - 9}
+              textAnchor="middle"
+              fill={index === coords.length - 1 ? trend : "#8fa0b8"}
+              fontSize="9.5"
+              fontWeight={index === coords.length - 1 ? "700" : "400"}
+            >
+              {values[index].toFixed(1)}
+            </text>
+          ) : null}
+        </g>
+      ))}
+      {points.length === 1 ? (
+        <text
+          x={width / 2}
+          y={height - 8}
+          textAnchor="middle"
+          fill="#8fa0b8"
+          fontSize="11"
+        >
+          Anade otro registro para ver la curva de evolucion
+        </text>
+      ) : null}
+    </svg>
+  );
+}
+
+function MeasurementBars({
+  title,
+  fields,
+  values,
+  scale,
+}: {
+  title: string;
+  fields: MeasurementField[];
+  values: MeasurementMap;
+  scale: number;
+}) {
+  return (
+    <div className={`${mutedTileClass} print:p-1.5`}>
+      <h3 className="mb-3 text-sm font-semibold text-slate-900 print:mb-1 print:text-[10px]">{title}</h3>
+      <div className="space-y-2 print:space-y-1">
+        {fields.map((field) => {
+          const value = values[field.key] ?? 0;
+          return (
+            <div
+              key={field.key}
+              className="grid grid-cols-[108px_minmax(0,1fr)_48px] items-center gap-2 print:grid-cols-[78px_minmax(0,1fr)_34px] print:gap-1"
+            >
+              <div className="text-xs text-slate-600 print:text-[8px]">{field.label}</div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 print:h-1">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(100, (value / scale) * 100)}%`,
+                    backgroundColor: field.color,
+                  }}
+                />
+              </div>
+              <div
+                className="text-right text-xs font-semibold print:text-[8px]"
+                style={{ color: field.color }}
+              >
+                {numberLabel(value)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ComponentBar({ calc }: { calc: AnthropometryResult }) {
+  const segments = [
+    { label: "Grasa", percent: Number(calc.pctGrass), color: "#c45a00" },
+    { label: "Muscular", percent: Number(calc.pctMusc), color: "#2563eb" },
+    { label: "Osea", percent: Number(calc.pctOssi), color: "#2d7a3a" },
+    { label: "Residual", percent: Number(calc.pctResid), color: "#94a3b8" },
+  ];
+
+  return (
+    <div className="flex h-7 overflow-hidden rounded-lg shadow-sm print:h-4">
+      {segments.map((segment) => (
+        <div
+          key={segment.label}
+          className="flex items-center justify-center text-xs font-semibold text-white"
+          style={{
+            width: `${Math.max(0, segment.percent)}%`,
+            backgroundColor: segment.color,
+          }}
+        >
+          {segment.percent > 8 ? `${segment.percent.toFixed(1)}%` : ""}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// function Somatocart({
+//   points,
+//   selectedIndex,
+//   size = 260,
+// }: {
+//   points: Array<{ x: string; y: string; label: string }>;
+//   selectedIndex: number;
+//   size?: number;
+// }) {
+//   const left = 30;
+//   const right = 16;
+//   const top = 22;
+//   const bottom = 28;
+//   const width = size;
+//   const height = size;
+//   const plotWidth = width - left - right;
+//   const plotHeight = height - top - bottom;
+//   const tx = (x: number | string) => left + ((Number(x) + 9) / 18) * plotWidth;
+//   const ty = (y: number | string) => top + ((9 - Number(y)) / 18) * plotHeight;
+//   const meso = [tx(0), ty(9)];
+//   const endo = [tx(-8), ty(-8)];
+//   const ecto = [tx(8), ty(-8)];
+//   const ticks = [-8, -4, 0, 4, 8];
+//   const colors = [
+//     "#2563eb",
+//     "#c45a00",
+//     "#7c3aed",
+//     "#059669",
+//     "#0891b2",
+//     "#be185d",
+//   ];
+
+//   return (
+//     <svg width={width} height={height} className="mx-auto block">
+//       <rect width={width} height={height} fill="#f7f9fc" rx="8" />
+//       {ticks.map((tick) => (
+//         <g key={tick}>
+//           <line
+//             x1={tx(tick)}
+//             y1={top}
+//             x2={tx(tick)}
+//             y2={top + plotHeight}
+//             stroke="#dde3ed"
+//             strokeWidth="0.5"
+//           />
+//           <line
+//             x1={left}
+//             y1={ty(tick)}
+//             x2={left + plotWidth}
+//             y2={ty(tick)}
+//             stroke="#dde3ed"
+//             strokeWidth="0.5"
+//           />
+//         </g>
+//       ))}
+//       <polygon
+//         points={`${meso[0]},${meso[1]} ${endo[0]},${endo[1]} ${ecto[0]},${ecto[1]}`}
+//         fill="none"
+//         stroke="#b0bdd0"
+//         strokeWidth="1.2"
+//       />
+//       <text
+//         x={meso[0]}
+//         y={meso[1] - 8}
+//         textAnchor="middle"
+//         fill="#2563eb"
+//         fontSize="9"
+//         fontWeight="bold"
+//       >
+//         MESOMORF
+//       </text>
+//       <text
+//         x={endo[0] + 2}
+//         y={endo[1] + 16}
+//         textAnchor="start"
+//         fill="#c45a00"
+//         fontSize="9"
+//         fontWeight="bold"
+//       >
+//         ENDOMORF
+//       </text>
+//       <text
+//         x={ecto[0] - 2}
+//         y={ecto[1] + 16}
+//         textAnchor="end"
+//         fill="#7c3aed"
+//         fontSize="9"
+//         fontWeight="bold"
+//       >
+//         ECTOMORF
+//       </text>
+//       {points.map((point, index) => {
+//         if (index === 0) return null;
+//         return (
+//           <line
+//             key={`${point.label}-line`}
+//             x1={tx(points[index - 1].x)}
+//             y1={ty(points[index - 1].y)}
+//             x2={tx(point.x)}
+//             y2={ty(point.y)}
+//             stroke="#94a3b8"
+//             strokeWidth="1.2"
+//             strokeDasharray="3,2"
+//           />
+//         );
+//       })}
+//       {points.map((point, index) => {
+//         const x = tx(point.x);
+//         const y = ty(point.y);
+//         const selected = index === selectedIndex;
+//         const color = selected ? "#ef4444" : colors[index % colors.length];
+//         return (
+//           <g key={point.label}>
+//             {selected ? (
+//               <circle cx={x} cy={y} r="9" fill="#ef4444" opacity="0.15" />
+//             ) : null}
+//             <circle
+//               cx={x}
+//               cy={y}
+//               r={selected ? 5.5 : 4}
+//               fill={selected ? "#ef4444" : "none"}
+//               stroke={color}
+//               strokeWidth={selected ? 0 : 1.8}
+//             />
+//             <text
+//               x={x + 7}
+//               y={y + 3}
+//               fill={color}
+//               fontSize={selected ? 8 : 7.5}
+//               fontWeight={selected ? "bold" : "400"}
+//             >
+//               {point.label}
+//             </text>
+//           </g>
+//         );
+//       })}
+//     </svg>
+//   );
+// }
+
+function Somatocart({
+  points,
+  selectedIndex,
+  size = 260,
+}: {
+  points: Array<{ x: string; y: string; label: string }>;
+  selectedIndex: number;
+  size?: number;
+}) {
+  const width = size;
+  const height = size;
+
+  // Márgenes para dejar espacio a las etiquetas
+  const left = size * 0.1;
+  const right = size * 0.1;
+  const top = size * 0.13;
+  const bottom = size * 0.12;
+
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+
+  // Mantengo tu sistema de coordenadas -9..9
+  const tx = (x: number | string) => left + ((Number(x) + 9) / 18) * plotWidth;
+
+  const ty = (y: number | string) => top + ((9 - Number(y)) / 18) * plotHeight;
+
+  /*
+   * Vértices principales
+   */
+  const meso = {
+    x: width / 2,
+    y: top + 10,
+  };
+
+  const endo = {
+    x: left,
+    y: height - bottom - 8,
+  };
+
+  const ecto = {
+    x: width - right,
+    y: height - bottom - 8,
+  };
+
+  /*
+   * Centro del gráfico
+   */
+  /*
+   * Puntos intermedios donde terminan las diagonales.
+   * Están sobre los laterales curvos aproximadamente.
+   */
+  const leftMiddle = {
+    x: width * 0.18,
+    y: height * 0.43,
+  };
+
+  const rightMiddle = {
+    x: width * 0.82,
+    y: height * 0.43,
+  };
+
+  /*
+   * Curvas del contorno.
+   *
+   * Q = quadratic Bézier:
+   *
+   * M inicio
+   * Q controlX controlY destinoX destinoY
+   */
+  const outlinePath = `
+    M ${meso.x} ${meso.y}
+
+    Q
+      ${width * 0.22} ${height * 0.28}
+      ${endo.x} ${endo.y}
+
+    Q
+      ${width * 0.5} ${height * 0.97}
+      ${ecto.x} ${ecto.y}
+
+    Q
+      ${width * 0.78} ${height * 0.28}
+      ${meso.x} ${meso.y}
+  `;
+
+  const colors = [
+    "#2563eb",
+    "#c45a00",
+    "#7c3aed",
+    "#059669",
+    "#0891b2",
+    "#be185d",
+  ];
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="mx-auto block"
+    >
+      {/* Fondo */}
+      <rect width={width} height={height} fill="#ffffff" />
+
+      {/* CONTORNO CURVO */}
+      <path
+        d={outlinePath}
+        fill="none"
+        stroke="#888"
+        strokeWidth="2"
+        strokeDasharray="6 4"
+        strokeLinecap="round"
+      />
+
+      {/* Eje vertical */}
+      <line
+        x1={meso.x}
+        y1={meso.y}
+        x2={width / 2}
+        y2={endo.y + 12}
+        stroke="#888"
+        strokeWidth="1.2"
+        strokeDasharray="3 2"
+      />
+
+      {/* Diagonal izquierda → derecha */}
+      <line
+        x1={leftMiddle.x}
+        y1={leftMiddle.y}
+        x2={ecto.x}
+        y2={ecto.y}
+        stroke="#888"
+        strokeWidth="1.2"
+        strokeDasharray="3 2"
+      />
+
+      {/* Diagonal derecha → izquierda */}
+      <line
+        x1={rightMiddle.x}
+        y1={rightMiddle.y}
+        x2={endo.x}
+        y2={endo.y}
+        stroke="#888"
+        strokeWidth="1.2"
+        strokeDasharray="3 2"
+      />
+
+      {/* MESOMORFO */}
+      <g>
+        <text x={meso.x - 25} y={25} fill="#222" fontSize="9">
+          MESOMORFO
+        </text>
+      </g>
+
+      {/* ENDOMORFO */}
+      <g>
+        <text x={endo.x - 16} y={height - 5} fill="#222" fontSize="9">
+          ENDOMORFO
+        </text>
+      </g>
+
+      {/* ECTOMORFO */}
+      <g>
+        <text x={ecto.x - 35} y={height - 5} fill="#222" fontSize="9">
+          ECTOMORFO
+        </text>
+      </g>
+
+      {/* Líneas entre mediciones */}
+      {points.map((point, index) => {
+        if (index === 0) return null;
+
+        return (
+          <line
+            key={`${point.label}-${index}-line`}
+            x1={tx(points[index - 1].x)}
+            y1={ty(points[index - 1].y)}
+            x2={tx(point.x)}
+            y2={ty(point.y)}
+            stroke="#94a3b8"
+            strokeWidth="1.2"
+            strokeDasharray="3 2"
+          />
+        );
+      })}
+
+      {/* Puntos */}
+      {points.map((point, index) => {
+        const x = tx(point.x);
+        const y = ty(point.y);
+
+        const selected = index === selectedIndex;
+
+        const color = selected ? "#ef4444" : colors[index % colors.length];
+
+        return (
+          <g key={`${point.label}-${index}`}>
+            {selected && (
+              <circle cx={x} cy={y} r="9" fill="#ef4444" opacity="0.15" />
+            )}
+
+            <circle
+              cx={x}
+              cy={y}
+              r={selected ? 5.5 : 4}
+              fill={selected ? "#ef4444" : color}
+              stroke={color}
+              strokeWidth={selected ? 0 : 1.2}
+            />
+
+            <text
+              x={x + 7}
+              y={y + 3}
+              fill={color}
+              fontSize={selected ? 8 : 7.5}
+              fontWeight={selected ? "bold" : "400"}
+            >
+              {point.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function ZScoreRow({
+  label,
+  value,
+  unit,
+  z,
+  color,
+}: {
+  label: string;
+  value: number | string;
+  unit: string;
+  z: number | undefined;
+  color: string;
+}) {
+  if (z === undefined) return null;
+
+  const zColor =
+    Math.abs(z) <= 1 ? "#2d7a3a" : Math.abs(z) <= 2 ? "#c45a00" : "#e05252";
+  const zLabel =
+    Math.abs(z) <= 1 ? "Normal" : Math.abs(z) <= 2 ? "Atencion" : "Alejado";
+
+  return (
+    <div className="grid grid-cols-[minmax(92px,1fr)_56px_minmax(44px,1fr)_44px_68px] items-center gap-2 border-b border-slate-100 py-1.5">
+      <div className="text-xs text-slate-700">{label}</div>
+      <div className="text-right text-xs font-semibold" style={{ color }}>
+        {value}
+        <span className="ml-0.5 font-normal text-slate-400">{unit}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${Math.min(100, (Math.abs(z) / 3) * 100)}%`,
+            marginLeft: z >= 0 ? 0 : "auto",
+            backgroundColor: zColor,
+          }}
+        />
+      </div>
+      <div
+        className="text-right text-xs font-semibold"
+        style={{ color: zColor }}
+      >
+        {z >= 0 ? "+" : ""}
+        {z}
+      </div>
+      <div
+        className="rounded bg-slate-100 px-1.5 py-1 text-center text-[0.65rem] font-semibold"
+        style={{ color: zColor }}
+      >
+        {zLabel}
+      </div>
+    </div>
+  );
+}
+
+function MeasurementInputRows({
+  title,
+  prefix,
+  fields,
+}: {
+  title: string;
+  prefix: string;
+  fields: MeasurementField[];
+}) {
+  return (
+    <div className={mutedTileClass}>
+      <h3 className="mb-3 text-sm font-semibold text-slate-900">{title}</h3>
+      <div className="mb-2 grid grid-cols-[minmax(86px,1fr)_repeat(3,minmax(58px,90px))] gap-2 px-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+        <div>Medida</div>
+        <div className="text-center">1a</div>
+        <div className="text-center">2a</div>
+        <div className="text-center">3a</div>
+      </div>
+      <div className="space-y-2">
+        {fields.map((field) => (
+          <div
+            key={field.key}
+            className="grid grid-cols-[minmax(86px,1fr)_repeat(3,minmax(58px,90px))] items-center gap-2"
+          >
+            <label
+              htmlFor={`${prefix}_${field.key}_1`}
+              className="text-xs text-slate-600"
+            >
+              {field.label}
+            </label>
+            {[1, 2, 3].map((index) => (
+              <input
+                key={index}
+                id={`${prefix}_${field.key}_${index}`}
+                name={`${prefix}_${field.key}_${index}`}
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                placeholder={index === 1 ? field.unit : ""}
+                className={`${inputClass} px-2 text-center`}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AppointmentActions({
+  appointment,
+  clientId,
+  completed,
+}: {
+  appointment: ClientAppointment;
+  clientId: string;
+  completed: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <form
+        action={completed ? reopenClientAppointment : completeClientAppointment}
+      >
+        <input type="hidden" name="client_id" value={clientId} />
+        <input type="hidden" name="appointment_id" value={appointment.id} />
+        <SubmitButton
+          className="inline-flex items-center cursor-pointer gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100"
+          pendingLabel="..."
+        >
+          {completed ? "Deshacer" : "Hecha"}
+        </SubmitButton>
+      </form>
+      <form action={deleteClientAppointment}>
+        <input type="hidden" name="client_id" value={clientId} />
+        <input type="hidden" name="appointment_id" value={appointment.id} />
+        <SubmitButton
+          className="inline-flex items-center gap-1 cursor-pointer rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+          pendingLabel="..."
+        >
+          Eliminar
+        </SubmitButton>
+      </form>
+    </div>
+  );
+}
+
+function AppointmentList({
+  title,
+  appointments,
+  clientId,
+  completed = false,
+  empty,
+}: {
+  title: string;
+  appointments: ClientAppointment[];
+  clientId: string;
+  completed?: boolean;
+  empty: string;
+}) {
+  return (
+    <div className={cardClass}>
+      <h3 className="mb-3 font-semibold text-slate-950">{title}</h3>
+      {appointments.length ? (
+        <div className="divide-y divide-slate-100">
+          {appointments.map((appointment) => (
+            <div
+              key={appointment.id}
+              className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center"
+            >
+              <DateBadge date={appointment.scheduled_date} />
+              <div className="min-w-0 flex-1">
+                <div
+                  className={`text-sm font-semibold ${completed ? "text-slate-500 line-through" : "text-slate-950"}`}
+                >
+                  {appointment.appointment_type}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500">
+                  {appointment.scheduled_time ? (
+                    <span className="inline-flex items-center gap-1 text-blue-700">
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                      {appointment.scheduled_time.slice(0, 5)}
+                    </span>
+                  ) : null}
+                  {appointment.notes ? <span>{appointment.notes}</span> : null}
+                </div>
+              </div>
+              <AppointmentActions
+                appointment={appointment}
+                clientId={clientId}
+                completed={completed}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">{empty}</p>
+      )}
+    </div>
+  );
+}
+
 export default async function ClientDetailPage({
   params,
   searchParams,
 }: ClientDetailPageProps) {
   const { id } = await params;
   const query = await searchParams;
+  const activeTab = resolveClientTab(query?.tab);
   const supabase = await createClient();
+  const today = todayIsoDate();
 
-  const [clientResult, planResult, notesResult, filesResult] = await Promise.all([
+  const [
+    clientResult,
+    planResult,
+    notesResult,
+    filesResult,
+    weightsResult,
+    anthropometryResult,
+    appointmentsResult,
+  ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", id).single(),
     supabase.from("plans").select("*").eq("client_id", id).maybeSingle(),
     supabase
@@ -98,6 +1065,23 @@ export default async function ClientDetailPage({
       .select("*")
       .eq("client_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("client_weight_logs")
+      .select("*")
+      .eq("client_id", id)
+      .order("measured_at", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("client_anthropometry_assessments")
+      .select("*")
+      .eq("client_id", id)
+      .order("measured_at", { ascending: false }),
+    supabase
+      .from("client_appointments")
+      .select("*")
+      .eq("client_id", id)
+      .order("scheduled_date", { ascending: true })
+      .order("scheduled_time", { ascending: true }),
   ]);
 
   if (clientResult.error || !clientResult.data) notFound();
@@ -106,7 +1090,6 @@ export default async function ClientDetailPage({
   const plan = planResult.data;
   const notes = notesResult.data ?? [];
   const age = clientAge(client.birth_date);
-  const bmi = clientBmi(client.weight_kg, client.height_cm);
   const storedFiles = filesResult.data ?? [];
   const files: SignedFile[] = await Promise.all(
     storedFiles.map(async (file) => {
@@ -118,14 +1101,207 @@ export default async function ClientDetailPage({
     }),
   );
 
+  const databaseWeights = isMissingSchemaTableError(weightsResult.error)
+    ? []
+    : (weightsResult.data ?? []);
+  const clientWeightPoint: WeightPoint | null = client.weight_kg
+    ? {
+        id: "current",
+        created_at: client.updated_at,
+        measured_at: client.updated_at.slice(0, 10),
+        weight_kg: client.weight_kg,
+      }
+    : null;
+  const lastLoggedPoint = databaseWeights[databaseWeights.length - 1] ?? null;
+  const lastLoggedWeight = lastLoggedPoint
+    ? Number(lastLoggedPoint.weight_kg)
+    : null;
+  const shouldAppendClientWeight =
+    clientWeightPoint !== null &&
+    (lastLoggedWeight === null ||
+      Math.abs(Number(clientWeightPoint.weight_kg) - lastLoggedWeight) > 0.01);
+  const weightPoints: WeightPoint[] = (
+    databaseWeights.length
+      ? shouldAppendClientWeight
+        ? [...databaseWeights, clientWeightPoint]
+        : databaseWeights
+      : clientWeightPoint
+        ? [clientWeightPoint]
+        : []
+  ).sort((a, b) => {
+    const byDate = a.measured_at.localeCompare(b.measured_at);
+    return byDate === 0 ? a.created_at.localeCompare(b.created_at) : byDate;
+  });
+  const weightValues = weightPoints.map((point) => Number(point.weight_kg));
+  const clientWeightUpdatedAt = client.updated_at
+    ? new Date(client.updated_at).getTime()
+    : 0;
+  const loggedWeightCreatedAt = lastLoggedPoint?.created_at
+    ? new Date(lastLoggedPoint.created_at).getTime()
+    : 0;
+  const latestWeight =
+    client.weight_kg && lastLoggedWeight
+      ? clientWeightUpdatedAt >= loggedWeightCreatedAt
+        ? client.weight_kg
+        : lastLoggedWeight
+      : (client.weight_kg ?? lastLoggedWeight);
+  const initialWeight = weightValues.length ? weightValues[0] : null;
+  const weightDelta =
+    latestWeight !== null && initialWeight !== null
+      ? latestWeight - initialWeight
+      : null;
+  const anthropometryRows = isMissingSchemaTableError(anthropometryResult.error)
+    ? []
+    : (anthropometryResult.data ?? []);
+  const latestAnthro = anthropometryRows[0] ?? null;
+  const latestSkinfolds = latestAnthro
+    ? measurementMapFromJson(latestAnthro.skinfolds, SKINFOLD_FIELDS)
+    : null;
+  const latestGirths = latestAnthro
+    ? measurementMapFromJson(latestAnthro.girths, GIRTH_FIELDS)
+    : null;
+  const latestDiameters = latestAnthro
+    ? measurementMapFromJson(latestAnthro.diameters, DIAMETER_FIELDS)
+    : null;
+  const calculationWeight = latestWeight ?? latestAnthro?.weight_kg ?? null;
+  const calculationHeight = latestAnthro?.height_cm ?? client.height_cm;
+  const bmi = clientBmi(calculationWeight, calculationHeight);
+  const latestCalc =
+    latestAnthro && latestSkinfolds && latestGirths && latestDiameters
+      ? calculateAnthropometry({
+          weightKg: calculationWeight,
+          heightCm: latestAnthro.height_cm,
+          sex: latestAnthro.sex ?? client.sex,
+          age,
+          skinfolds: latestSkinfolds,
+          girths: latestGirths,
+          diameters: latestDiameters,
+        })
+      : null;
+  const selectedAnthro =
+    anthropometryRows.find((row) => row.id === query?.anthropometry) ??
+    latestAnthro;
+  const selectedSkinfolds = selectedAnthro
+    ? measurementMapFromJson(selectedAnthro.skinfolds, SKINFOLD_FIELDS)
+    : null;
+  const selectedGirths = selectedAnthro
+    ? measurementMapFromJson(selectedAnthro.girths, GIRTH_FIELDS)
+    : null;
+  const selectedDiameters = selectedAnthro
+    ? measurementMapFromJson(selectedAnthro.diameters, DIAMETER_FIELDS)
+    : null;
+  const selectedCalc =
+    selectedAnthro && selectedSkinfolds && selectedGirths && selectedDiameters
+      ? calculateAnthropometry({
+          weightKg: calculationWeight,
+          heightCm: selectedAnthro.height_cm,
+          sex: selectedAnthro.sex ?? client.sex,
+          age,
+          skinfolds: selectedSkinfolds,
+          girths: selectedGirths,
+          diameters: selectedDiameters,
+        })
+      : null;
+  const orderedAnthropometryRows = [...anthropometryRows].reverse();
+  const somatotypePoints = orderedAnthropometryRows
+    .map((row) => {
+      const skinfolds = measurementMapFromJson(row.skinfolds, SKINFOLD_FIELDS);
+      const girths = measurementMapFromJson(row.girths, GIRTH_FIELDS);
+      const diameters = measurementMapFromJson(row.diameters, DIAMETER_FIELDS);
+      const calc = calculateAnthropometry({
+        weightKg: calculationWeight,
+        heightCm: row.height_cm,
+        sex: row.sex ?? client.sex,
+        age,
+        skinfolds,
+        girths,
+        diameters,
+      });
+
+      return calc
+        ? {
+            id: row.id,
+            x: calc.somatX,
+            y: calc.somatY,
+            label: formatDate(row.measured_at).slice(0, 6),
+          }
+        : null;
+    })
+    .filter((point): point is { id: string; x: string; y: string; label: string } =>
+      Boolean(point),
+    );
+  const selectedSomatotypeIndex = Math.max(
+    0,
+    somatotypePoints.findIndex((point) => point.id === selectedAnthro?.id),
+  );
+  const appointments = isMissingSchemaTableError(appointmentsResult.error)
+    ? []
+    : (appointmentsResult.data ?? []);
+  const upcomingAppointments = appointments.filter(
+    (appointment) =>
+      appointment.scheduled_date >= today && !appointment.completed,
+  );
+  const completedAppointments = appointments.filter(
+    (appointment) => appointment.completed,
+  );
+  const pastAppointments = appointments.filter(
+    (appointment) =>
+      appointment.scheduled_date < today && !appointment.completed,
+  );
+  const planSettings = energySettingsFromJson(plan?.energy_settings);
+  const mealDistribution = mealDistributionFromJson(plan?.meal_distribution);
+  const energy = calculateEnergyPlan({
+    settings: planSettings,
+    weightKg: calculationWeight,
+    heightCm: calculationHeight,
+    age,
+    sex: client.sex,
+  });
+  const planCalories = energy.calories;
+  const personalInfo: Array<{
+    label: string;
+    value: React.ReactNode;
+    Icon: LucideIcon;
+  }> = [
+    { label: "Nombre", value: client.name, Icon: UserRound },
+    {
+      label: "Fecha de nacimiento",
+      value: client.birth_date
+        ? `${formatDate(client.birth_date)}${age !== null ? ` (${age} anos)` : ""}`
+        : "No indicada",
+      Icon: Calendar,
+    },
+    {
+      label: "Sexo",
+      value: client.sex ? sexLabels[client.sex] : "No indicado",
+      Icon: UserRound,
+    },
+    {
+      label: "Altura",
+      value: client.height_cm ? `${client.height_cm} cm` : "No indicada",
+      Icon: Ruler,
+    },
+    { label: "Email", value: client.email || "No indicado", Icon: Mail },
+    { label: "Telefono", value: client.phone || "No indicado", Icon: Phone },
+    { label: "Deporte", value: client.sport || "No indicado", Icon: Dumbbell },
+    { label: "Objetivo", value: client.goal || "No indicado", Icon: Target },
+    {
+      label: "Actividad",
+      value: client.activity_level
+        ? activityLabels[client.activity_level]
+        : "No indicada",
+      Icon: Activity,
+    },
+  ];
+
   return (
     <>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Link
             href="/clients"
             className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-600 transition hover:bg-white"
-            aria-label="Back to clients"
+            aria-label="Volver a clientes"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -137,7 +1313,7 @@ export default async function ClientDetailPage({
               {client.name}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Client since {formatDate(client.created_at)}
+              Cliente desde {formatDate(client.created_at)}
             </p>
           </div>
         </div>
@@ -148,64 +1324,989 @@ export default async function ClientDetailPage({
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <Edit3 className="h-4 w-4" aria-hidden="true" />
-            Edit
+            Editar
           </Link>
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 print:hidden">
         <Notice
-          error={query?.error ?? notesResult.error?.message ?? filesResult.error?.message}
+          error={
+            query?.error ??
+            notesResult.error?.message ??
+            filesResult.error?.message ??
+            migrationPendingMessage(weightsResult.error) ??
+            migrationPendingMessage(anthropometryResult.error) ??
+            migrationPendingMessage(appointmentsResult.error)
+          }
           success={query?.success}
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-5">
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-950">Nutrition plan</h2>
-              <span className="text-xs text-slate-400">
-                {plan?.updated_at ? `Updated ${formatDate(plan.updated_at)}` : "Draft"}
-              </span>
-            </div>
-            <form action={savePlan} className="space-y-4">
-              <input type="hidden" name="client_id" value={client.id} />
-              <textarea
-                name="content"
-                defaultValue={plan?.content ?? ""}
-                rows={12}
-                className="min-h-72 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
-                placeholder="Write the nutrition plan here: meals, portions, hydration, reminders, and review notes."
-              />
-              <div className="flex justify-end">
-                <SubmitButton
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                  pendingLabel="Saving..."
-                  icon="save"
-                >
-                  Save plan
-                </SubmitButton>
-              </div>
-            </form>
-          </section>
+      <nav
+        className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-sm print:hidden"
+        aria-label="Apartados del cliente"
+        role="tablist"
+      >
+        {clientTabs.map((tab) => {
+          const selected = activeTab === tab.key;
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-950">History and notes</h2>
-            <form action={addClientNote} className="mt-4 space-y-3">
+          return (
+            <Link
+              key={tab.key}
+              href={clientTabHref(client.id, tab.key)}
+              className={`rounded-lg px-3 py-1.5 font-medium transition ${
+                selected
+                  ? "bg-emerald-800 text-white shadow-sm"
+                  : "text-slate-500 hover:bg-white hover:text-emerald-800"
+              }`}
+              aria-current={selected ? "page" : undefined}
+              aria-selected={selected}
+              role="tab"
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div>
+        {activeTab === "fitxa" ? (
+          <section id="fitxa" className={cardClass}>
+            <SectionTitle
+              title="Fitxa"
+              description="Datos personales y resumen actual del cliente."
+            />
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-slate-900">
+                  Datos personales
+                </h3>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  {personalInfo.map(({ label, value, Icon }) => (
+                    <div
+                      key={label}
+                      className="flex gap-3 rounded-lg bg-slate-50 p-3"
+                    >
+                      <Icon
+                        className="mt-0.5 h-4 w-4 text-slate-400"
+                        aria-hidden="true"
+                      />
+                      <div>
+                        <dt className="text-slate-400">{label}</dt>
+                        <dd className="font-medium text-slate-700">{value}</dd>
+                      </div>
+                    </div>
+                  ))}
+                </dl>
+                {client.allergies ? (
+                  <div className="mt-5 rounded-lg bg-amber-50 p-4">
+                    <div className={labelClass}>Alergias</div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-amber-900">
+                      {client.allergies}
+                    </p>
+                  </div>
+                ) : null}
+                {client.notes ? (
+                  <div className="mt-5 rounded-lg bg-slate-50 p-4">
+                    <div className={labelClass}>Notas</div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                      {client.notes}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-3">
+                <MiniStat
+                  label="Peso actual"
+                  value={numberLabel(calculationWeight, "kg")}
+                />
+                <MiniStat
+                  label="IMC"
+                  value={latestCalc?.imc ?? bmi ?? "--"}
+                  color="#2563eb"
+                  helper={latestCalc?.imcCat}
+                />
+                <MiniStat
+                  label="S6 pliegues"
+                  value={latestCalc ? `${latestCalc.sum6} mm` : "--"}
+                  color="#c45a00"
+                />
+                <MiniStat
+                  label="Kcal/dia plan"
+                  value={planCalories || "--"}
+                  color="#be185d"
+                />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "peso" ? (
+          <section id="peso" className={cardClass}>
+            <SectionTitle
+              title="Peso"
+              description="Evolucion del peso, resumen e historial de registros."
+              action={
+                <form
+                  action={addClientWeight}
+                  className="flex flex-wrap items-end gap-2"
+                >
+                  <input type="hidden" name="client_id" value={client.id} />
+                  <label className="space-y-1">
+                    <span className={labelClass}>Fecha</span>
+                    <input
+                      name="measured_at"
+                      type="date"
+                      defaultValue={today}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="w-32 space-y-1">
+                    <span className={labelClass}>Peso</span>
+                    <input
+                      name="weight_kg"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      inputMode="decimal"
+                      placeholder="kg"
+                      className={inputClass}
+                    />
+                  </label>
+                  <SubmitButton
+                    className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    pendingLabel="Guardando..."
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Añadir
+                  </SubmitButton>
+                </form>
+              }
+            />
+
+            {weightPoints.length ? (
+              <>
+                <div className="mb-5 rounded-lg border border-slate-200 bg-white p-3">
+                  <WeightChart points={weightPoints} />
+                </div>
+                <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <MiniStat
+                    label="Actual"
+                    value={numberLabel(calculationWeight, "kg")}
+                  />
+                  <MiniStat
+                    label="Inicial"
+                    value={numberLabel(initialWeight, "kg")}
+                    color="#64748b"
+                  />
+                  <MiniStat
+                    label="Variacion"
+                    value={
+                      weightDelta !== null
+                        ? `${weightDelta > 0 ? "+" : ""}${weightDelta.toFixed(1)} kg`
+                        : "--"
+                    }
+                    color={
+                      weightDelta !== null && weightDelta <= 0
+                        ? "#2d7a3a"
+                        : "#e05252"
+                    }
+                  />
+                  <MiniStat
+                    label="Minimo"
+                    value={numberLabel(Math.min(...weightValues), "kg")}
+                    color="#2563eb"
+                  />
+                  <MiniStat
+                    label="Maximo"
+                    value={numberLabel(Math.max(...weightValues), "kg")}
+                    color="#c45a00"
+                  />
+                </div>
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3">Fecha</th>
+                        <th className="px-4 py-3">Peso</th>
+                        <th className="px-4 py-3">Variacion</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[...weightPoints].reverse().map((point, index, rows) => {
+                        const previous = rows[index + 1];
+                        const delta = previous
+                          ? Number(point.weight_kg) - Number(previous.weight_kg)
+                          : null;
+                        return (
+                          <tr key={point.id}>
+                            <td className="px-4 py-3 text-slate-500">
+                              {formatDate(point.measured_at)}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-emerald-800">
+                              {numberLabel(point.weight_kg, "kg")}
+                            </td>
+                            <td
+                              className="px-4 py-3 font-semibold"
+                              style={{
+                                color:
+                                  delta === null
+                                    ? "#94a3b8"
+                                    : delta <= 0
+                                      ? "#2d7a3a"
+                                      : "#e05252",
+                              }}
+                            >
+                              {delta === null
+                                ? "--"
+                                : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg`}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <EmptyState
+                title="Sin registros de peso"
+                description="Anade el primer peso para empezar a ver la evolucion."
+              />
+            )}
+          </section>
+        ) : null}
+
+        {activeTab === "plan" ? (
+          <section id="plan" className={cardClass}>
+            <SectionTitle
+              title="Plan nutricional"
+              description="Calculadora energetica, macros y notas del plan actual."
+            />
+            <NutritionPlanForm
+              clientId={client.id}
+              content={plan?.content ?? ""}
+              settings={planSettings}
+              meals={mealDistribution}
+              reference={{
+                weightKg: calculationWeight,
+                heightCm: calculationHeight,
+                age,
+                sex: client.sex,
+              }}
+            />
+          </section>
+        ) : null}
+
+        {activeTab === "antropometria" ? (
+          <section id="antropometria" className={cardClass}>
+            <SectionTitle
+              title="Antropometria"
+              description="Valoraciones, composicion corporal, proporcionalidad y somatotipo."
+            />
+
+            {selectedAnthro &&
+            selectedSkinfolds &&
+            selectedGirths &&
+            selectedDiameters &&
+            selectedCalc ? (
+              <div className="space-y-5">
+                <div className="flex flex-wrap gap-2">
+                  {anthropometryRows.map((row) => (
+                    <Link
+                      key={row.id}
+                      href={`/clients/${client.id}?tab=antropometria&anthropometry=${row.id}`}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                        row.id === selectedAnthro.id
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-slate-50 text-slate-500"
+                      }`}
+                      aria-current={row.id === selectedAnthro.id ? "page" : undefined}
+                    >
+                      {formatDate(row.measured_at)}
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className={mutedTileClass}>
+                    <h3 className="mb-3 text-sm font-semibold text-slate-900">
+                      Datos generales
+                    </h3>
+                    <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                      {[
+                        ["Fecha", formatDate(selectedAnthro.measured_at)],
+                        ["Peso actual", numberLabel(calculationWeight, "kg")],
+                        ["Altura", `${selectedAnthro.height_cm} cm`],
+                        ["IMC", selectedCalc.imc],
+                        ["S6 pliegues", `${selectedCalc.sum6} mm`],
+                        ["S8 pliegues", `${selectedCalc.sum8} mm`],
+                        ["Ratio C/C", selectedCalc.ratioCM],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="flex justify-between border-b border-slate-100 py-1"
+                        >
+                          <dt className="text-slate-500">{label}</dt>
+                          <dd className="font-semibold text-slate-900">
+                            {value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <MiniStat
+                      label="% Grasa Carter"
+                      value={`${selectedCalc.pctGrass}%`}
+                      color="#c45a00"
+                      helper={`${selectedCalc.pGras} kg`}
+                    />
+                    <MiniStat
+                      label="% Muscular Lee"
+                      value={`${selectedCalc.pctMusc}%`}
+                      color="#2563eb"
+                      helper={`${selectedCalc.pMusc} kg`}
+                    />
+                    <MiniStat
+                      label="% Osea Rocha"
+                      value={`${selectedCalc.pctOssi}%`}
+                      color="#2d7a3a"
+                      helper={`${selectedCalc.pOssi} kg`}
+                    />
+                    <MiniStat
+                      label="% Residual"
+                      value={`${selectedCalc.pctResid}%`}
+                      color="#94a3b8"
+                      helper={`${selectedCalc.pResid} kg`}
+                    />
+                  </div>
+                </div>
+
+                <div className={mutedTileClass}>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900">
+                    Composicion corporal - sumatorio de componentes
+                  </h3>
+                  <ComponentBar calc={selectedCalc} />
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <MeasurementBars
+                    title="Pliegues cutaneos (mm)"
+                    fields={SKINFOLD_FIELDS}
+                    values={selectedSkinfolds}
+                    scale={40}
+                  />
+                  <MeasurementBars
+                    title="Perimetros (cm)"
+                    fields={GIRTH_FIELDS}
+                    values={selectedGirths}
+                    scale={110}
+                  />
+                  <MeasurementBars
+                    title="Diametros (cm)"
+                    fields={DIAMETER_FIELDS}
+                    values={selectedDiameters}
+                    scale={12}
+                  />
+                </div>
+
+                <div className={mutedTileClass}>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900">
+                    Proporcionalidad - valores Z
+                  </h3>
+                  <div className="grid gap-5 lg:grid-cols-3">
+                    <div>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                        Pliegues
+                      </div>
+                      {SKINFOLD_FIELDS.map((field) => (
+                        <ZScoreRow
+                          key={field.key}
+                          label={field.label}
+                          value={selectedSkinfolds[field.key]}
+                          unit={field.unit}
+                          z={selectedCalc.zScores[field.key]}
+                          color={field.color}
+                        />
+                      ))}
+                    </div>
+                    <div>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-700">
+                        Perimetros
+                      </div>
+                      {GIRTH_FIELDS.map((field) => (
+                        <ZScoreRow
+                          key={field.key}
+                          label={field.label}
+                          value={selectedGirths[field.key]}
+                          unit={field.unit}
+                          z={selectedCalc.zScores[field.key]}
+                          color={field.color}
+                        />
+                      ))}
+                    </div>
+                    <div>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        Diametros y composicion
+                      </div>
+                      {[
+                        ...DIAMETER_FIELDS.map((field) => ({
+                          ...field,
+                          value: selectedDiameters[field.key],
+                          zKey: field.key,
+                        })),
+                        {
+                          label: "Brazo corr.",
+                          unit: "cm",
+                          color: "#2d7a3a",
+                          value: selectedCalc.brCorGen,
+                          zKey: "brac_corr",
+                        },
+                        {
+                          label: "Pierna corr.",
+                          unit: "cm",
+                          color: "#2d7a3a",
+                          value: selectedCalc.camaCorGen,
+                          zKey: "cama_corr",
+                        },
+                        {
+                          label: "Peso graso",
+                          unit: "kg",
+                          color: "#c45a00",
+                          value: selectedCalc.pGras,
+                          zKey: "pGras",
+                        },
+                        {
+                          label: "Peso muscular",
+                          unit: "kg",
+                          color: "#2563eb",
+                          value: selectedCalc.pMusc,
+                          zKey: "pMusc",
+                        },
+                        {
+                          label: "Peso oseo",
+                          unit: "kg",
+                          color: "#2d7a3a",
+                          value: selectedCalc.pOssi,
+                          zKey: "pOssi",
+                        },
+                      ].map((row) => (
+                        <ZScoreRow
+                          key={row.zKey}
+                          label={row.label}
+                          value={row.value}
+                          unit={row.unit}
+                          z={selectedCalc.zScores[row.zKey]}
+                          color={row.color}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={mutedTileClass}>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-900">
+                    Somatotipo Heath-Carter
+                  </h3>
+                  <div className="grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)]">
+                    <Somatocart
+                      points={somatotypePoints}
+                      selectedIndex={selectedSomatotypeIndex}
+                    />
+                    <div className="space-y-4">
+                      {[
+                        [
+                          "Endomorfia",
+                          selectedCalc.endo,
+                          "#c45a00",
+                          "Grasa y tejidos blandos",
+                        ],
+                        [
+                          "Mesomorfia",
+                          selectedCalc.meso,
+                          "#2563eb",
+                          "Musculo y hueso",
+                        ],
+                        [
+                          "Ectomorfia",
+                          selectedCalc.ecto,
+                          "#7c3aed",
+                          "Linealidad",
+                        ],
+                      ].map(([label, value, color, helper]) => (
+                        <div key={label}>
+                          <div className="mb-1 flex justify-between">
+                            <span
+                              className="text-sm font-semibold"
+                              style={{ color }}
+                            >
+                              {label}
+                            </span>
+                            <span
+                              className="text-xl font-semibold"
+                              style={{ color }}
+                            >
+                              {value}
+                            </span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(100, (Number(value) / 8) * 100)}%`,
+                                backgroundColor: String(color),
+                              }}
+                            />
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {helper}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <MiniStat
+                          label="X endo-ecto"
+                          value={selectedCalc.somatX}
+                          color="#64748b"
+                        />
+                        <MiniStat
+                          label="Y meso"
+                          value={selectedCalc.somatY}
+                          color="#64748b"
+                        />
+                        <MiniStat
+                          label="S6 pliegues"
+                          value={`${selectedCalc.sum6} mm`}
+                          color="#c45a00"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <EmptyState
+                title="Sin valoraciones antropometricas completas"
+                description="Guarda una valoracion con pliegues, perimetros y diametros para ver los calculos."
+              />
+            )}
+
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5">
+              <SectionTitle title="Nueva valoracion antropometrica" />
+              <form action={addClientAnthropometry} className="space-y-4">
+                <input type="hidden" name="client_id" value={client.id} />
+                <div className="grid gap-3 md:grid-cols-4">
+                  <label className="space-y-1.5">
+                    <span className={labelClass}>Fecha</span>
+                    <input
+                      name="measured_at"
+                      type="date"
+                      defaultValue={today}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className={labelClass}>Peso (kg)</span>
+                    <input
+                      name="weight_kg"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      inputMode="decimal"
+                      defaultValue={calculationWeight ?? ""}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className={labelClass}>Altura (cm)</span>
+                    <input
+                      name="height_cm"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      inputMode="decimal"
+                      defaultValue={client.height_cm ?? ""}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className={labelClass}>Sexo</span>
+                    <select
+                      name="sex"
+                      defaultValue={client.sex ?? ""}
+                      className={inputClass}
+                    >
+                      <option value="">No indicado</option>
+                      <option value="male">Hombre</option>
+                      <option value="female">Mujer</option>
+                      <option value="non_binary">No binario</option>
+                      <option value="prefer_not_to_say">
+                        Prefiere no decirlo
+                      </option>
+                    </select>
+                  </label>
+                </div>
+                <div className="grid gap-4 xl:grid-cols-3">
+                  <MeasurementInputRows
+                    title="Pliegues (mm)"
+                    prefix="skinfolds"
+                    fields={SKINFOLD_FIELDS}
+                  />
+                  <MeasurementInputRows
+                    title="Perimetros (cm)"
+                    prefix="girths"
+                    fields={GIRTH_FIELDS}
+                  />
+                  <MeasurementInputRows
+                    title="Diametros (cm)"
+                    prefix="diameters"
+                    fields={DIAMETER_FIELDS}
+                  />
+                </div>
+                <label className="block space-y-1.5">
+                  <span className={labelClass}>Notas</span>
+                  <textarea
+                    name="notes"
+                    rows={3}
+                    className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+                  />
+                </label>
+                <div className="flex justify-end">
+                  <SubmitButton
+                    className="inline-flex items-center cursor-pointer justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    pendingLabel="Guardando..."
+                    icon="save"
+                  >
+                    Guardar valoracion
+                  </SubmitButton>
+                </div>
+              </form>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "citas" ? (
+          <section id="citas" className={cardClass}>
+            <SectionTitle
+              title="Citas"
+              description="Proximas citas, completadas e historial."
+              action={
+                <form
+                  action={addClientAppointment}
+                  className="grid gap-2 sm:grid-cols-[150px_120px_170px_minmax(180px,1fr)_auto] sm:items-end"
+                >
+                  <input type="hidden" name="client_id" value={client.id} />
+                  <label className="space-y-1">
+                    <span className={labelClass}>Fecha</span>
+                    <input
+                      name="scheduled_date"
+                      type="date"
+                      defaultValue={today}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className={labelClass}>Hora</span>
+                    <input
+                      name="scheduled_time"
+                      type="time"
+                      defaultValue="09:00"
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className={labelClass}>Tipo</span>
+                    <select
+                      name="appointment_type"
+                      defaultValue="Revision mensual"
+                      className={inputClass}
+                    >
+                      {appointmentTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className={labelClass}>Notas</span>
+                    <input
+                      name="notes"
+                      placeholder="Indicaciones, recordatorios..."
+                      className={inputClass}
+                    />
+                  </label>
+                  <SubmitButton
+                    className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    pendingLabel="Guardando..."
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Añadir
+                  </SubmitButton>
+                </form>
+              }
+            />
+            <div className="grid gap-4">
+              <AppointmentList
+                title="Proximas citas"
+                appointments={upcomingAppointments}
+                clientId={client.id}
+                empty="Sin citas programadas."
+              />
+              {completedAppointments.length ? (
+                <AppointmentList
+                  title="Completadas"
+                  appointments={completedAppointments}
+                  clientId={client.id}
+                  completed
+                  empty="Sin citas completadas."
+                />
+              ) : null}
+              <AppointmentList
+                title="Historial (pasadas)"
+                appointments={pastAppointments}
+                clientId={client.id}
+                empty="Sin historial de citas pasadas."
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "informe" ? (
+          <section
+            id="informe"
+            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm print:border-0 print:p-0 print:shadow-none"
+          >
+            <div className="print:hidden">
+              <SectionTitle
+                title="Informe"
+                description="Resumen imprimible de la ultima valoracion antropometrica."
+                action={
+                  <PrintButton className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 print:hidden" />
+                }
+              />
+            </div>
+            <div
+              id="client-report"
+              className="bg-white print:text-[9px]"
+            >
+              <div className="mb-5 flex items-end justify-between border-b-4 border-emerald-700 pb-4 print:mb-2 print:pb-1">
+                <div>
+                  <div className="text-2xl font-semibold text-emerald-800 print:text-lg">
+                    Informe Antropometrico
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 print:text-[8px]">
+                    Valoracion:{" "}
+                    {latestAnthro ? formatDate(latestAnthro.measured_at) : "--"}{" "}
+                    | Generado: {formatDate(today)}
+                  </div>
+                </div>
+                <div className="text-right text-xs font-semibold uppercase tracking-wide text-slate-400 print:text-[8px]">
+                  NutriSport Pro
+                </div>
+              </div>
+
+              <div className="mb-5 grid gap-3 rounded-lg bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-7 print:mb-2 print:grid-cols-7 print:gap-1.5 print:p-1.5">
+                {[
+                  ["Paciente", client.name],
+                  ["Edad", age !== null ? `${age} anos` : "--"],
+                  ["Sexo", client.sex ? sexLabels[client.sex] : "--"],
+
+                  [
+                    "Peso",
+                    calculationWeight ? `${calculationWeight} kg` : "--",
+                  ],
+                  [
+                    "Talla",
+                    calculationHeight ? `${calculationHeight} cm` : "--",
+                  ],
+                  ["IMC", latestCalc?.imc ?? bmi ?? "--"],
+                  ["Deporte", client.sport || "--"],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <div className={labelClass}>{label}</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 print:text-[9px]">
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {latestAnthro &&
+              latestSkinfolds &&
+              latestGirths &&
+              latestDiameters &&
+              latestCalc ? (
+                <div className="space-y-5 print:space-y-2">
+                  <div>
+                    <h3 className="mb-3 border-l-4 border-emerald-700 pl-3 text-sm font-semibold text-slate-900 print:mb-1 print:pl-2 print:text-[10px]">
+                      Composicion corporal
+                    </h3>
+                    <ComponentBar calc={latestCalc} />
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 print:mt-1.5 print:grid-cols-4 print:gap-1">
+                      {[
+                        [
+                          "Grasa",
+                          latestCalc.pctGrass,
+                          latestCalc.pGras,
+                          "#c45a00",
+                          "Carter 1982",
+                        ],
+                        [
+                          "Muscular",
+                          latestCalc.pctMusc,
+                          latestCalc.pMusc,
+                          "#2563eb",
+                          "Lee 2000",
+                        ],
+                        [
+                          "Osea",
+                          latestCalc.pctOssi,
+                          latestCalc.pOssi,
+                          "#2d7a3a",
+                          "Rocha 1974",
+                        ],
+                        [
+                          "Residual",
+                          latestCalc.pctResid,
+                          latestCalc.pResid,
+                          "#94a3b8",
+                          "Diferencia",
+                        ],
+                      ].map(([label, percent, kg, color, method]) => (
+                        <div
+                          key={label}
+                          className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center print:p-1.5"
+                        >
+                          <div className={labelClass}>{label}</div>
+                          <div
+                            className="mt-1 text-2xl font-semibold print:mt-0 print:text-sm"
+                            style={{ color }}
+                          >
+                            {percent}%
+                          </div>
+                          <div className="text-sm font-semibold text-slate-700 print:text-[9px]">
+                            {kg} kg
+                          </div>
+                          <div className="mt-1 text-xs text-slate-400 print:mt-0 print:text-[8px]">
+                            {method}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-3 border-l-4 border-blue-700 pl-3 text-sm font-semibold text-slate-900 print:mb-1 print:pl-2 print:text-[10px]">
+                      Somatotipo Heath-Carter
+                    </h3>
+                    <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)] print:grid-cols-[190px_minmax(0,1fr)] print:items-center print:gap-3">
+                      <Somatocart
+                        points={somatotypePoints}
+                        selectedIndex={somatotypePoints.length - 1}
+                        size={190}
+                      />
+                      <div className="space-y-3 print:space-y-1">
+                        {[
+                          ["Endomorfia", latestCalc.endo, "#c45a00"],
+                          ["Mesomorfia", latestCalc.meso, "#2563eb"],
+                          ["Ectomorfia", latestCalc.ecto, "#7c3aed"],
+                        ].map(([label, value, color]) => (
+                          <div key={label}>
+                            <div
+                              className="mb-1 flex justify-between text-sm font-semibold print:mb-0.5 print:text-[10px]"
+                              style={{ color }}
+                            >
+                              <span>{label}</span>
+                              <span>{value}</span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-slate-200 print:h-1">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${Math.min(100, (Number(value) / 8) * 100)}%`,
+                                  backgroundColor: String(color),
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        <div className="grid gap-2 sm:grid-cols-3 print:gap-1">
+                          <MiniStat
+                            label="X"
+                            value={latestCalc.somatX}
+                            color="#64748b"
+                          />
+                          <MiniStat
+                            label="Y"
+                            value={latestCalc.somatY}
+                            color="#64748b"
+                          />
+                          <MiniStat
+                            label="S6"
+                            value={`${latestCalc.sum6} mm`}
+                            color="#c45a00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-3 border-l-4 border-violet-700 pl-3 text-sm font-semibold text-slate-900 print:mb-1 print:pl-2 print:text-[10px]">
+                      Medidas detalladas
+                    </h3>
+                    <div className="grid gap-3 lg:grid-cols-3 print:grid-cols-3 print:gap-1.5">
+                      <MeasurementBars
+                        title="Pliegues cutaneos"
+                        fields={SKINFOLD_FIELDS}
+                        values={latestSkinfolds}
+                        scale={40}
+                      />
+                      <MeasurementBars
+                        title="Perimetros"
+                        fields={GIRTH_FIELDS}
+                        values={latestGirths}
+                        scale={110}
+                      />
+                      <MeasurementBars
+                        title="Diametros"
+                        fields={DIAMETER_FIELDS}
+                        values={latestDiameters}
+                        scale={12}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  Sin valoraciones antropometricas registradas.
+                </p>
+              )}
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "notas" ? (
+          <section id="notas" className={cardClass}>
+            <SectionTitle title="Historial y notas" />
+            <form action={addClientNote} className="space-y-3">
               <input type="hidden" name="client_id" value={client.id} />
               <textarea
                 name="content"
                 rows={4}
                 className="min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
-                placeholder="Add a follow-up note, check-in summary, symptoms, adherence, or next steps."
+                placeholder="Anade seguimiento, sintomas, adherencia o proximos pasos."
               />
               <div className="flex justify-end">
                 <SubmitButton
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                  pendingLabel="Adding..."
+                  className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  pendingLabel="Anadiendo..."
                 >
-                  Add note
+                  Añadir nota
                 </SubmitButton>
               </div>
             </form>
@@ -216,7 +2317,7 @@ export default async function ClientDetailPage({
                   <article key={note.id} className="py-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        <div className={labelClass}>
                           {formatDate(note.created_at)}
                         </div>
                         <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
@@ -224,11 +2325,15 @@ export default async function ClientDetailPage({
                         </p>
                       </div>
                       <form action={deleteClientNote}>
-                        <input type="hidden" name="client_id" value={client.id} />
+                        <input
+                          type="hidden"
+                          name="client_id"
+                          value={client.id}
+                        />
                         <input type="hidden" name="note_id" value={note.id} />
                         <SubmitButton
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                          ariaLabel="Delete note"
+                          className="inline-flex h-8 w-8 items-center cursor-pointer justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                          ariaLabel="Eliminar nota"
                           icon="trash"
                         />
                       </form>
@@ -237,159 +2342,52 @@ export default async function ClientDetailPage({
                 ))
               ) : (
                 <p className="py-6 text-sm text-slate-500">
-                  No history yet. Add the first note after a client check-in.
+                  Sin historial todavia. Anade la primera nota despues de una
+                  revision.
                 </p>
               )}
             </div>
           </section>
-        </div>
+        ) : null}
 
-        <aside className="space-y-5">
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-950">Personal info</h2>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div className="flex gap-3">
-                <UserRound className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Sex</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.sex ? sexLabels[client.sex] : "Not set"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Calendar className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Age</dt>
-                  <dd className="font-medium text-slate-700">
-                    {age !== null ? `${age} years` : "Not set"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Ruler className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Height</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.height_cm ? `${client.height_cm} cm` : "Not set"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Scale className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Weight</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.weight_kg ? `${client.weight_kg} kg` : "Not set"}
-                    {bmi ? (
-                      <span className="ml-2 text-xs font-normal text-slate-400">
-                        BMI {bmi}
-                      </span>
-                    ) : null}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Mail className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Email</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.email || "Not set"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Phone className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Phone</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.phone || "Not set"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Dumbbell className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Sport</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.sport || "Not set"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Activity className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Activity</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.activity_level
-                      ? activityLabels[client.activity_level]
-                      : "Not set"}
-                  </dd>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Target className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" />
-                <div>
-                  <dt className="text-slate-400">Goal</dt>
-                  <dd className="font-medium text-slate-700">
-                    {client.goal || "Not set"}
-                  </dd>
-                </div>
-              </div>
-            </dl>
-            {client.allergies ? (
-              <div className="mt-5 rounded-lg bg-amber-50 p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                  Allergies
-                </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-amber-900">
-                  {client.allergies}
-                </p>
-              </div>
-            ) : null}
-            {client.notes ? (
-              <div className="mt-5 rounded-lg bg-slate-50 p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Notes
-                </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                  {client.notes}
-                </p>
-              </div>
-            ) : null}
-          </section>
-
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-950">Client files</h2>
-            <form action={uploadClientFile} className="mt-4 space-y-3">
+        {activeTab === "archivos" ? (
+          <section id="archivos" className={cardClass}>
+            <SectionTitle title="Archivos del cliente" />
+            <form
+              action={uploadClientFile}
+              className="flex flex-col gap-3 sm:flex-row"
+            >
               <input type="hidden" name="client_id" value={client.id} />
               <input
                 name="file"
                 type="file"
-                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
+                className="block w-full cursor-pointer text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
               />
               <SubmitButton
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                pendingLabel="Uploading..."
+                className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                pendingLabel="Subiendo..."
                 icon="upload"
               >
-                Upload file
+                Subir archivo
               </SubmitButton>
             </form>
 
-            <div className="mt-5 space-y-3">
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
               {files.length ? (
                 files.map((file) => (
                   <div
                     key={file.id}
                     className="flex items-center gap-3 rounded-lg border border-slate-200 p-3"
                   >
-                    <FileText className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                    <FileText
+                      className="h-4 w-4 shrink-0 text-slate-400"
+                      aria-hidden="true"
+                    />
                     <div className="min-w-0 flex-1">
                       {file.signedUrl ? (
                         <a
                           href={file.signedUrl}
-                          className="truncate text-sm font-medium text-slate-800 hover:text-emerald-800"
+                          className="block truncate text-sm font-medium text-slate-800 hover:text-emerald-800"
                         >
                           {file.file_name}
                         </a>
@@ -406,7 +2404,7 @@ export default async function ClientDetailPage({
                       <a
                         href={file.signedUrl}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
-                        aria-label={`Download ${file.file_name}`}
+                        aria-label={`Descargar ${file.file_name}`}
                       >
                         <Download className="h-4 w-4" aria-hidden="true" />
                       </a>
@@ -415,36 +2413,43 @@ export default async function ClientDetailPage({
                       <input type="hidden" name="client_id" value={client.id} />
                       <input type="hidden" name="file_id" value={file.id} />
                       <SubmitButton
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                        ariaLabel={`Delete ${file.file_name}`}
+                        className="inline-flex h-8 w-8 items-center cursor-pointer justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                        ariaLabel={`Eliminar ${file.file_name}`}
                         icon="trash"
                       />
                     </form>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-500">No files uploaded yet.</p>
+                <p className="text-sm text-slate-500">
+                  No hay archivos subidos.
+                </p>
               )}
             </div>
           </section>
+        ) : null}
 
-          <section className="rounded-lg border border-red-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-red-700">Danger zone</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Deletes this client, their plan, notes, and stored files.
-            </p>
-            <form action={deleteNutritionClient} className="mt-4">
+        {activeTab === "danger" ? (
+          <section
+            id="danger"
+            className="rounded-lg border border-red-200 bg-white p-5 shadow-sm"
+          >
+            <SectionTitle
+              title="Zona de peligro"
+              description="Elimina este cliente, su plan, notas, citas y archivos guardados."
+            />
+            <form action={deleteNutritionClient}>
               <input type="hidden" name="client_id" value={client.id} />
               <SubmitButton
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
-                pendingLabel="Deleting..."
+                className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+                pendingLabel="Eliminando..."
                 icon="trash"
               >
-                Delete client
+                Eliminar cliente
               </SubmitButton>
             </form>
           </section>
-        </aside>
+        ) : null}
       </div>
     </>
   );

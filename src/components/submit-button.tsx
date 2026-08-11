@@ -42,7 +42,7 @@ export function SubmitButton({
       ) : Icon ? (
         <Icon className="h-4 w-4" aria-hidden="true" />
       ) : null}
-      {label ? <span>{label}</span> : null}
+      {label ? <span className="flex items-center gap-1">{label}</span> : null}
     </button>
   );
 }

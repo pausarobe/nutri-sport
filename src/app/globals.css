@@ -34,3 +34,20 @@ button {
 textarea {
   field-sizing: content;
 }
+
+@page {
+  margin: 8mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff;
+  }
+
+  #client-report,
+  #client-report > div,
+  #client-report section {
+    break-inside: avoid;
+  }
+}

@@ -72,6 +72,12 @@ export type Database = {
           user_id: string;
           client_id: string;
           content: string;
+          calories: number | null;
+          protein_g: number | null;
+          carbs_g: number | null;
+          fat_g: number | null;
+          energy_settings: Json;
+          meal_distribution: Json;
           created_at: string;
           updated_at: string;
         };
@@ -80,6 +86,12 @@ export type Database = {
           user_id: string;
           client_id: string;
           content?: string;
+          calories?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          fat_g?: number | null;
+          energy_settings?: Json;
+          meal_distribution?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -88,6 +100,12 @@ export type Database = {
           user_id?: string;
           client_id?: string;
           content?: string;
+          calories?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          fat_g?: number | null;
+          energy_settings?: Json;
+          meal_distribution?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -177,6 +195,141 @@ export type Database = {
           },
         ];
       };
+      client_weight_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          client_id: string;
+          measured_at: string;
+          weight_kg: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          client_id: string;
+          measured_at?: string;
+          weight_kg: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          client_id?: string;
+          measured_at?: string;
+          weight_kg?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_weight_logs_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      client_anthropometry_assessments: {
+        Row: {
+          id: string;
+          user_id: string;
+          client_id: string;
+          measured_at: string;
+          height_cm: number;
+          weight_kg: number;
+          sex: ClientSex | null;
+          skinfolds: Json;
+          girths: Json;
+          diameters: Json;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          client_id: string;
+          measured_at?: string;
+          height_cm: number;
+          weight_kg: number;
+          sex?: ClientSex | null;
+          skinfolds?: Json;
+          girths?: Json;
+          diameters?: Json;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          client_id?: string;
+          measured_at?: string;
+          height_cm?: number;
+          weight_kg?: number;
+          sex?: ClientSex | null;
+          skinfolds?: Json;
+          girths?: Json;
+          diameters?: Json;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_anthropometry_assessments_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      client_appointments: {
+        Row: {
+          id: string;
+          user_id: string;
+          client_id: string;
+          scheduled_date: string;
+          scheduled_time: string | null;
+          appointment_type: string;
+          notes: string | null;
+          completed: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          client_id: string;
+          scheduled_date: string;
+          scheduled_time?: string | null;
+          appointment_type?: string;
+          notes?: string | null;
+          completed?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          client_id?: string;
+          scheduled_date?: string;
+          scheduled_time?: string | null;
+          appointment_type?: string;
+          notes?: string | null;
+          completed?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_appointments_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -202,3 +355,9 @@ export type Client = Database["public"]["Tables"]["clients"]["Row"];
 export type Plan = Database["public"]["Tables"]["plans"]["Row"];
 export type ClientNote = Database["public"]["Tables"]["client_notes"]["Row"];
 export type ClientFile = Database["public"]["Tables"]["client_files"]["Row"];
+export type ClientWeightLog =
+  Database["public"]["Tables"]["client_weight_logs"]["Row"];
+export type ClientAnthropometryAssessment =
+  Database["public"]["Tables"]["client_anthropometry_assessments"]["Row"];
+export type ClientAppointment =
+  Database["public"]["Tables"]["client_appointments"]["Row"];
