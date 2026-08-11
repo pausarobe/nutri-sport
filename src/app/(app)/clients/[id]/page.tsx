@@ -54,10 +54,13 @@ import {
   deleteClientAppointment,
   deleteClientFile,
   deleteClientNote,
+  deleteClientWeight,
   deleteNutritionClient,
   reopenClientAppointment,
+  updateClientWeight,
   uploadClientFile,
 } from "../actions";
+import { AnthropometryModal } from "@/components/anthropometry-modal";
 
 type ClientDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -109,7 +112,7 @@ const appointmentTypes = [
 ];
 
 const clientTabs = [
-  { key: "fitxa", label: "Fitxa" },
+  { key: "ficha", label: "Ficha" },
   { key: "peso", label: "Peso" },
   { key: "plan", label: "Plan nutricional" },
   { key: "antropometria", label: "Antropometria" },
@@ -140,7 +143,7 @@ type ClientTab = (typeof clientTabs)[number]["key"];
 function resolveClientTab(value: string | undefined): ClientTab {
   return clientTabs.some((tab) => tab.key === value)
     ? (value as ClientTab)
-    : "fitxa";
+    : "ficha";
 }
 
 function clientTabHref(clientId: string, tab: ClientTab) {
@@ -240,11 +243,16 @@ function MiniStat({
   return (
     <div className={`${mutedTileClass} print:p-1.5`}>
       <div className={labelClass}>{label}</div>
-      <div className="mt-1 text-xl font-semibold print:text-sm" style={{ color }}>
+      <div
+        className="mt-1 text-xl font-semibold print:text-sm"
+        style={{ color }}
+      >
         {value}
       </div>
       {helper ? (
-        <div className="mt-1 text-xs text-slate-500 print:text-[9px]">{helper}</div>
+        <div className="mt-1 text-xs text-slate-500 print:text-[9px]">
+          {helper}
+        </div>
       ) : null}
     </div>
   );
@@ -413,7 +421,9 @@ function MeasurementBars({
 }) {
   return (
     <div className={`${mutedTileClass} print:p-1.5`}>
-      <h3 className="mb-3 text-sm font-semibold text-slate-900 print:mb-1 print:text-[10px]">{title}</h3>
+      <h3 className="mb-3 text-sm font-semibold text-slate-900 print:mb-1 print:text-[10px]">
+        {title}
+      </h3>
       <div className="space-y-2 print:space-y-1">
         {fields.map((field) => {
           const value = values[field.key] ?? 0;
@@ -422,7 +432,9 @@ function MeasurementBars({
               key={field.key}
               className="grid grid-cols-[108px_minmax(0,1fr)_48px] items-center gap-2 print:grid-cols-[78px_minmax(0,1fr)_34px] print:gap-1"
             >
-              <div className="text-xs text-slate-600 print:text-[8px]">{field.label}</div>
+              <div className="text-xs text-slate-600 print:text-[8px]">
+                {field.label}
+              </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 print:h-1">
                 <div
                   className="h-full rounded-full"
@@ -471,146 +483,6 @@ function ComponentBar({ calc }: { calc: AnthropometryResult }) {
     </div>
   );
 }
-
-// function Somatocart({
-//   points,
-//   selectedIndex,
-//   size = 260,
-// }: {
-//   points: Array<{ x: string; y: string; label: string }>;
-//   selectedIndex: number;
-//   size?: number;
-// }) {
-//   const left = 30;
-//   const right = 16;
-//   const top = 22;
-//   const bottom = 28;
-//   const width = size;
-//   const height = size;
-//   const plotWidth = width - left - right;
-//   const plotHeight = height - top - bottom;
-//   const tx = (x: number | string) => left + ((Number(x) + 9) / 18) * plotWidth;
-//   const ty = (y: number | string) => top + ((9 - Number(y)) / 18) * plotHeight;
-//   const meso = [tx(0), ty(9)];
-//   const endo = [tx(-8), ty(-8)];
-//   const ecto = [tx(8), ty(-8)];
-//   const ticks = [-8, -4, 0, 4, 8];
-//   const colors = [
-//     "#2563eb",
-//     "#c45a00",
-//     "#7c3aed",
-//     "#059669",
-//     "#0891b2",
-//     "#be185d",
-//   ];
-
-//   return (
-//     <svg width={width} height={height} className="mx-auto block">
-//       <rect width={width} height={height} fill="#f7f9fc" rx="8" />
-//       {ticks.map((tick) => (
-//         <g key={tick}>
-//           <line
-//             x1={tx(tick)}
-//             y1={top}
-//             x2={tx(tick)}
-//             y2={top + plotHeight}
-//             stroke="#dde3ed"
-//             strokeWidth="0.5"
-//           />
-//           <line
-//             x1={left}
-//             y1={ty(tick)}
-//             x2={left + plotWidth}
-//             y2={ty(tick)}
-//             stroke="#dde3ed"
-//             strokeWidth="0.5"
-//           />
-//         </g>
-//       ))}
-//       <polygon
-//         points={`${meso[0]},${meso[1]} ${endo[0]},${endo[1]} ${ecto[0]},${ecto[1]}`}
-//         fill="none"
-//         stroke="#b0bdd0"
-//         strokeWidth="1.2"
-//       />
-//       <text
-//         x={meso[0]}
-//         y={meso[1] - 8}
-//         textAnchor="middle"
-//         fill="#2563eb"
-//         fontSize="9"
-//         fontWeight="bold"
-//       >
-//         MESOMORF
-//       </text>
-//       <text
-//         x={endo[0] + 2}
-//         y={endo[1] + 16}
-//         textAnchor="start"
-//         fill="#c45a00"
-//         fontSize="9"
-//         fontWeight="bold"
-//       >
-//         ENDOMORF
-//       </text>
-//       <text
-//         x={ecto[0] - 2}
-//         y={ecto[1] + 16}
-//         textAnchor="end"
-//         fill="#7c3aed"
-//         fontSize="9"
-//         fontWeight="bold"
-//       >
-//         ECTOMORF
-//       </text>
-//       {points.map((point, index) => {
-//         if (index === 0) return null;
-//         return (
-//           <line
-//             key={`${point.label}-line`}
-//             x1={tx(points[index - 1].x)}
-//             y1={ty(points[index - 1].y)}
-//             x2={tx(point.x)}
-//             y2={ty(point.y)}
-//             stroke="#94a3b8"
-//             strokeWidth="1.2"
-//             strokeDasharray="3,2"
-//           />
-//         );
-//       })}
-//       {points.map((point, index) => {
-//         const x = tx(point.x);
-//         const y = ty(point.y);
-//         const selected = index === selectedIndex;
-//         const color = selected ? "#ef4444" : colors[index % colors.length];
-//         return (
-//           <g key={point.label}>
-//             {selected ? (
-//               <circle cx={x} cy={y} r="9" fill="#ef4444" opacity="0.15" />
-//             ) : null}
-//             <circle
-//               cx={x}
-//               cy={y}
-//               r={selected ? 5.5 : 4}
-//               fill={selected ? "#ef4444" : "none"}
-//               stroke={color}
-//               strokeWidth={selected ? 0 : 1.8}
-//             />
-//             <text
-//               x={x + 7}
-//               y={y + 3}
-//               fill={color}
-//               fontSize={selected ? 8 : 7.5}
-//               fontWeight={selected ? "bold" : "400"}
-//             >
-//               {point.label}
-//             </text>
-//           </g>
-//         );
-//       })}
-//     </svg>
-//   );
-// }
 
 function Somatocart({
   points,
@@ -1089,6 +961,9 @@ export default async function ClientDetailPage({
   const client = clientResult.data;
   const plan = planResult.data;
   const notes = notesResult.data ?? [];
+  const supplementNotes = notes.filter(
+    (note) => note.note_type === "supplement",
+  );
   const age = clientAge(client.birth_date);
   const storedFiles = filesResult.data ?? [];
   const files: SignedFile[] = await Promise.all(
@@ -1104,47 +979,29 @@ export default async function ClientDetailPage({
   const databaseWeights = isMissingSchemaTableError(weightsResult.error)
     ? []
     : (weightsResult.data ?? []);
-  const clientWeightPoint: WeightPoint | null = client.weight_kg
-    ? {
-        id: "current",
-        created_at: client.updated_at,
-        measured_at: client.updated_at.slice(0, 10),
-        weight_kg: client.weight_kg,
-      }
-    : null;
-  const lastLoggedPoint = databaseWeights[databaseWeights.length - 1] ?? null;
-  const lastLoggedWeight = lastLoggedPoint
-    ? Number(lastLoggedPoint.weight_kg)
-    : null;
-  const shouldAppendClientWeight =
-    clientWeightPoint !== null &&
-    (lastLoggedWeight === null ||
-      Math.abs(Number(clientWeightPoint.weight_kg) - lastLoggedWeight) > 0.01);
   const weightPoints: WeightPoint[] = (
     databaseWeights.length
-      ? shouldAppendClientWeight
-        ? [...databaseWeights, clientWeightPoint]
-        : databaseWeights
-      : clientWeightPoint
-        ? [clientWeightPoint]
+      ? databaseWeights
+      : client.weight_kg
+        ? [
+            {
+              id: "current",
+              created_at: client.updated_at,
+              measured_at: client.updated_at.slice(0, 10),
+              weight_kg: client.weight_kg,
+            },
+          ]
         : []
   ).sort((a, b) => {
     const byDate = a.measured_at.localeCompare(b.measured_at);
     return byDate === 0 ? a.created_at.localeCompare(b.created_at) : byDate;
   });
+  const latestLoggedPoint = weightPoints[weightPoints.length - 1] ?? null;
+  const latestLoggedWeight = latestLoggedPoint
+    ? Number(latestLoggedPoint.weight_kg)
+    : null;
   const weightValues = weightPoints.map((point) => Number(point.weight_kg));
-  const clientWeightUpdatedAt = client.updated_at
-    ? new Date(client.updated_at).getTime()
-    : 0;
-  const loggedWeightCreatedAt = lastLoggedPoint?.created_at
-    ? new Date(lastLoggedPoint.created_at).getTime()
-    : 0;
-  const latestWeight =
-    client.weight_kg && lastLoggedWeight
-      ? clientWeightUpdatedAt >= loggedWeightCreatedAt
-        ? client.weight_kg
-        : lastLoggedWeight
-      : (client.weight_kg ?? lastLoggedWeight);
+  const latestWeight = latestLoggedWeight ?? client.weight_kg;
   const initialWeight = weightValues.length ? weightValues[0] : null;
   const weightDelta =
     latestWeight !== null && initialWeight !== null
@@ -1227,8 +1084,9 @@ export default async function ClientDetailPage({
           }
         : null;
     })
-    .filter((point): point is { id: string; x: string; y: string; label: string } =>
-      Boolean(point),
+    .filter(
+      (point): point is { id: string; x: string; y: string; label: string } =>
+        Boolean(point),
     );
   const selectedSomatotypeIndex = Math.max(
     0,
@@ -1241,6 +1099,7 @@ export default async function ClientDetailPage({
     (appointment) =>
       appointment.scheduled_date >= today && !appointment.completed,
   );
+  const nextAppointment = upcomingAppointments[0] ?? null;
   const completedAppointments = appointments.filter(
     (appointment) => appointment.completed,
   );
@@ -1258,19 +1117,13 @@ export default async function ClientDetailPage({
     sex: client.sex,
   });
   const planCalories = energy.calories;
+  const recentNotes = notes.slice(0, 5);
   const personalInfo: Array<{
     label: string;
     value: React.ReactNode;
     Icon: LucideIcon;
   }> = [
     { label: "Nombre", value: client.name, Icon: UserRound },
-    {
-      label: "Fecha de nacimiento",
-      value: client.birth_date
-        ? `${formatDate(client.birth_date)}${age !== null ? ` (${age} anos)` : ""}`
-        : "No indicada",
-      Icon: Calendar,
-    },
     {
       label: "Sexo",
       value: client.sex ? sexLabels[client.sex] : "No indicado",
@@ -1371,53 +1224,19 @@ export default async function ClientDetailPage({
       </nav>
 
       <div>
-        {activeTab === "fitxa" ? (
-          <section id="fitxa" className={cardClass}>
+        {activeTab === "ficha" ? (
+          <section id="ficha" className={cardClass}>
             <SectionTitle
-              title="Fitxa"
+              title="Ficha"
               description="Datos personales y resumen actual del cliente."
             />
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <div>
-                <h3 className="mb-3 text-sm font-semibold text-slate-900">
-                  Datos personales
-                </h3>
-                <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                  {personalInfo.map(({ label, value, Icon }) => (
-                    <div
-                      key={label}
-                      className="flex gap-3 rounded-lg bg-slate-50 p-3"
-                    >
-                      <Icon
-                        className="mt-0.5 h-4 w-4 text-slate-400"
-                        aria-hidden="true"
-                      />
-                      <div>
-                        <dt className="text-slate-400">{label}</dt>
-                        <dd className="font-medium text-slate-700">{value}</dd>
-                      </div>
-                    </div>
-                  ))}
-                </dl>
-                {client.allergies ? (
-                  <div className="mt-5 rounded-lg bg-amber-50 p-4">
-                    <div className={labelClass}>Alergias</div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-amber-900">
-                      {client.allergies}
-                    </p>
-                  </div>
-                ) : null}
-                {client.notes ? (
-                  <div className="mt-5 rounded-lg bg-slate-50 p-4">
-                    <div className={labelClass}>Notas</div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                      {client.notes}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="space-y-3">
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-5 xl:grid-cols-5">
+                <MiniStat
+                  label="Edad"
+                  value={age !== null ? `${age} años` : "--"}
+                  color="#64748b"
+                />
                 <MiniStat
                   label="Peso actual"
                   value={numberLabel(calculationWeight, "kg")}
@@ -1438,6 +1257,152 @@ export default async function ClientDetailPage({
                   value={planCalories || "--"}
                   color="#be185d"
                 />
+              </div>
+
+              <div
+                className={`grid gap-5 ${
+                  nextAppointment || recentNotes.length
+                    ? "md:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]"
+                    : ""
+                }`}
+              >
+                <div className="space-y-5">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 h-full">
+                    <h3 className="mb-3 text-sm font-semibold text-slate-900">
+                      Datos clave
+                    </h3>
+                    <dl className="grid gap-3 text-sm md:grid-cols-2">
+                      {personalInfo.map(({ label, value, Icon }) => (
+                        <div
+                          key={label}
+                          className="flex gap-3 rounded-lg bg-white p-3"
+                        >
+                          <Icon
+                            className="mt-0.5 h-4 w-4 text-slate-400"
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0">
+                            <dt className={labelClass}>{label}</dt>
+                            <dd className="mt-1 break-words font-medium text-slate-800">
+                              {value}
+                            </dd>
+                          </div>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+
+                  {client.allergies || client.notes ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {client.allergies ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                          <div className={labelClass}>Alergias</div>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-amber-900">
+                            {client.allergies}
+                          </p>
+                        </div>
+                      ) : null}
+                      {client.notes ? (
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                          <div className={labelClass}>Notas de ficha</div>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                            {client.notes}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                {nextAppointment || recentNotes.length ? (
+                  <aside className="space-y-5">
+                    {nextAppointment ? (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <h3 className="text-sm font-semibold text-emerald-950">
+                            Proxima cita
+                          </h3>
+                          <Link
+                            href={clientTabHref(client.id, "citas")}
+                            className="text-xs font-semibold text-emerald-800 hover:text-emerald-700"
+                          >
+                            Ver citas
+                          </Link>
+                        </div>
+                        <div className="flex gap-3">
+                          <DateBadge date={nextAppointment.scheduled_date} />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-950">
+                              {nextAppointment.appointment_type}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-3 text-sm text-slate-600">
+                              {nextAppointment.scheduled_time ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock
+                                    className="h-3.5 w-3.5 text-emerald-700"
+                                    aria-hidden="true"
+                                  />
+                                  {nextAppointment.scheduled_time.slice(0, 5)}
+                                </span>
+                              ) : null}
+                              <span>
+                                {formatDate(nextAppointment.scheduled_date)}
+                              </span>
+                            </div>
+                            {nextAppointment.notes ? (
+                              <p className="mt-2 text-sm leading-6 text-slate-700">
+                                {nextAppointment.notes}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {recentNotes.length ? (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <h3 className="text-sm font-semibold text-slate-900">
+                            Ultimas 5 notas
+                          </h3>
+                          <Link
+                            href={clientTabHref(client.id, "notas")}
+                            className="text-xs font-semibold text-emerald-800 hover:text-emerald-700"
+                          >
+                            Ver notas
+                          </Link>
+                        </div>
+                        <div className="divide-y divide-slate-200">
+                          {recentNotes.map((note) => {
+                            const isSupplement =
+                              note.note_type === "supplement";
+
+                            return (
+                              <article
+                                key={note.id}
+                                className="py-3 first:pt-0 last:pb-0"
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className={labelClass}>
+                                    {formatDate(note.created_at)}
+                                  </div>
+                                  {isSupplement ? (
+                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase text-emerald-800">
+                                      Suplemento
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                                  {note.content}
+                                </p>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </aside>
+                ) : null}
               </div>
             </div>
           </section>
@@ -1532,6 +1497,7 @@ export default async function ClientDetailPage({
                         <th className="px-4 py-3">Fecha</th>
                         <th className="px-4 py-3">Peso</th>
                         <th className="px-4 py-3">Variacion</th>
+                        <th className="px-4 py-3 text-right">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1543,10 +1509,33 @@ export default async function ClientDetailPage({
                         return (
                           <tr key={point.id}>
                             <td className="px-4 py-3 text-slate-500">
-                              {formatDate(point.measured_at)}
+                              {point.id === "current" ? (
+                                formatDate(point.measured_at)
+                              ) : (
+                                <input
+                                  form={`weight-${point.id}`}
+                                  name="measured_at"
+                                  type="date"
+                                  defaultValue={point.measured_at}
+                                  className={`${inputClass} max-w-40`}
+                                />
+                              )}
                             </td>
                             <td className="px-4 py-3 font-semibold text-emerald-800">
-                              {numberLabel(point.weight_kg, "kg")}
+                              {point.id === "current" ? (
+                                numberLabel(point.weight_kg, "kg")
+                              ) : (
+                                <input
+                                  form={`weight-${point.id}`}
+                                  name="weight_kg"
+                                  type="number"
+                                  step="0.1"
+                                  min="0"
+                                  inputMode="decimal"
+                                  defaultValue={point.weight_kg}
+                                  className={`${inputClass} max-w-28 font-semibold text-emerald-800`}
+                                />
+                              )}
                             </td>
                             <td
                               className="px-4 py-3 font-semibold"
@@ -1562,6 +1551,55 @@ export default async function ClientDetailPage({
                               {delta === null
                                 ? "--"
                                 : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg`}
+                            </td>
+                            <td className="px-4 py-3">
+                              {point.id === "current" ? (
+                                <span className="block text-right text-xs text-slate-400">
+                                  Ficha
+                                </span>
+                              ) : (
+                                <div className="flex justify-end gap-2">
+                                  <form
+                                    id={`weight-${point.id}`}
+                                    action={updateClientWeight}
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="client_id"
+                                      value={client.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="weight_id"
+                                      value={point.id}
+                                    />
+                                    <SubmitButton
+                                      className="inline-flex h-8 w-8 items-center justify-center cursor-pointer rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
+                                      pendingLabel=""
+                                      ariaLabel="Guardar peso"
+                                      icon="save"
+                                    />
+                                  </form>
+                                  <form action={deleteClientWeight}>
+                                    <input
+                                      type="hidden"
+                                      name="client_id"
+                                      value={client.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="weight_id"
+                                      value={point.id}
+                                    />
+                                    <SubmitButton
+                                      className="inline-flex h-8 w-8 items-center justify-center cursor-pointer rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                      pendingLabel=""
+                                      ariaLabel="Eliminar peso"
+                                      icon="trash"
+                                    />
+                                  </form>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
@@ -1605,6 +1643,98 @@ export default async function ClientDetailPage({
             <SectionTitle
               title="Antropometria"
               description="Valoraciones, composicion corporal, proporcionalidad y somatotipo."
+              action={
+                <AnthropometryModal>
+                  <form action={addClientAnthropometry} className="space-y-4">
+                    <input type="hidden" name="client_id" value={client.id} />
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <label className="space-y-1.5">
+                        <span className={labelClass}>Fecha</span>
+                        <input
+                          name="measured_at"
+                          type="date"
+                          defaultValue={today}
+                          className={inputClass}
+                        />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className={labelClass}>Peso (kg)</span>
+                        <input
+                          name="weight_kg"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          inputMode="decimal"
+                          defaultValue={calculationWeight ?? ""}
+                          className={inputClass}
+                        />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className={labelClass}>Altura (cm)</span>
+                        <input
+                          name="height_cm"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          inputMode="decimal"
+                          defaultValue={client.height_cm ?? ""}
+                          className={inputClass}
+                        />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className={labelClass}>Sexo</span>
+                        <select
+                          name="sex"
+                          defaultValue={client.sex ?? ""}
+                          className={inputClass}
+                        >
+                          <option value="">No indicado</option>
+                          <option value="male">Hombre</option>
+                          <option value="female">Mujer</option>
+                          <option value="non_binary">No binario</option>
+                          <option value="prefer_not_to_say">
+                            Prefiere no decirlo
+                          </option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <MeasurementInputRows
+                        title="Pliegues (mm)"
+                        prefix="skinfolds"
+                        fields={SKINFOLD_FIELDS}
+                      />
+                      <MeasurementInputRows
+                        title="Perimetros (cm)"
+                        prefix="girths"
+                        fields={GIRTH_FIELDS}
+                      />
+                      <MeasurementInputRows
+                        title="Diametros (cm)"
+                        prefix="diameters"
+                        fields={DIAMETER_FIELDS}
+                      />
+                    </div>
+                    <label className="block space-y-1.5">
+                      <span className={labelClass}>Notas</span>
+                      <textarea
+                        name="notes"
+                        rows={3}
+                        className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+                      />
+                    </label>
+                    <div className="flex justify-end">
+                      <SubmitButton
+                        className="inline-flex items-center cursor-pointer justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                        pendingLabel="Guardando..."
+                        icon="save"
+                      >
+                        Guardar valoracion
+                      </SubmitButton>
+                    </div>
+                  </form>
+                </AnthropometryModal>
+              }
             />
 
             {selectedAnthro &&
@@ -1623,7 +1753,9 @@ export default async function ClientDetailPage({
                           ? "border-emerald-300 bg-emerald-50 text-emerald-800"
                           : "border-slate-200 bg-slate-50 text-slate-500"
                       }`}
-                      aria-current={row.id === selectedAnthro.id ? "page" : undefined}
+                      aria-current={
+                        row.id === selectedAnthro.id ? "page" : undefined
+                      }
                     >
                       {formatDate(row.measured_at)}
                     </Link>
@@ -1893,98 +2025,6 @@ export default async function ClientDetailPage({
                 description="Guarda una valoracion con pliegues, perimetros y diametros para ver los calculos."
               />
             )}
-
-            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5">
-              <SectionTitle title="Nueva valoracion antropometrica" />
-              <form action={addClientAnthropometry} className="space-y-4">
-                <input type="hidden" name="client_id" value={client.id} />
-                <div className="grid gap-3 md:grid-cols-4">
-                  <label className="space-y-1.5">
-                    <span className={labelClass}>Fecha</span>
-                    <input
-                      name="measured_at"
-                      type="date"
-                      defaultValue={today}
-                      className={inputClass}
-                    />
-                  </label>
-                  <label className="space-y-1.5">
-                    <span className={labelClass}>Peso (kg)</span>
-                    <input
-                      name="weight_kg"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      inputMode="decimal"
-                      defaultValue={calculationWeight ?? ""}
-                      className={inputClass}
-                    />
-                  </label>
-                  <label className="space-y-1.5">
-                    <span className={labelClass}>Altura (cm)</span>
-                    <input
-                      name="height_cm"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      inputMode="decimal"
-                      defaultValue={client.height_cm ?? ""}
-                      className={inputClass}
-                    />
-                  </label>
-                  <label className="space-y-1.5">
-                    <span className={labelClass}>Sexo</span>
-                    <select
-                      name="sex"
-                      defaultValue={client.sex ?? ""}
-                      className={inputClass}
-                    >
-                      <option value="">No indicado</option>
-                      <option value="male">Hombre</option>
-                      <option value="female">Mujer</option>
-                      <option value="non_binary">No binario</option>
-                      <option value="prefer_not_to_say">
-                        Prefiere no decirlo
-                      </option>
-                    </select>
-                  </label>
-                </div>
-                <div className="grid gap-4 xl:grid-cols-3">
-                  <MeasurementInputRows
-                    title="Pliegues (mm)"
-                    prefix="skinfolds"
-                    fields={SKINFOLD_FIELDS}
-                  />
-                  <MeasurementInputRows
-                    title="Perimetros (cm)"
-                    prefix="girths"
-                    fields={GIRTH_FIELDS}
-                  />
-                  <MeasurementInputRows
-                    title="Diametros (cm)"
-                    prefix="diameters"
-                    fields={DIAMETER_FIELDS}
-                  />
-                </div>
-                <label className="block space-y-1.5">
-                  <span className={labelClass}>Notas</span>
-                  <textarea
-                    name="notes"
-                    rows={3}
-                    className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
-                  />
-                </label>
-                <div className="flex justify-end">
-                  <SubmitButton
-                    className="inline-flex items-center cursor-pointer justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                    pendingLabel="Guardando..."
-                    icon="save"
-                  >
-                    Guardar valoracion
-                  </SubmitButton>
-                </div>
-              </form>
-            </div>
           </section>
         ) : null}
 
@@ -2089,10 +2129,7 @@ export default async function ClientDetailPage({
                 }
               />
             </div>
-            <div
-              id="client-report"
-              className="bg-white print:text-[9px]"
-            >
+            <div id="client-report" className="bg-white print:text-[9px]">
               <div className="mb-5 flex items-end justify-between border-b-4 border-emerald-700 pb-4 print:mb-2 print:pb-1">
                 <div>
                   <div className="text-2xl font-semibold text-emerald-800 print:text-lg">
@@ -2112,7 +2149,7 @@ export default async function ClientDetailPage({
               <div className="mb-5 grid gap-3 rounded-lg bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-7 print:mb-2 print:grid-cols-7 print:gap-1.5 print:p-1.5">
                 {[
                   ["Paciente", client.name],
-                  ["Edad", age !== null ? `${age} anos` : "--"],
+                  ["Edad", age !== null ? `${age} años` : "--"],
                   ["Sexo", client.sex ? sexLabels[client.sex] : "--"],
 
                   [
@@ -2135,6 +2172,24 @@ export default async function ClientDetailPage({
                 ))}
               </div>
 
+              {supplementNotes.length ? (
+                <div className="mb-5 rounded-lg bg-emerald-50 p-3 print:mb-2 print:p-1.5">
+                  <h3 className="mb-2 text-sm font-semibold text-slate-900 print:mb-1 print:text-[10px]">
+                    Suplementos
+                  </h3>
+                  <div className="grid gap-2 text-sm leading-6 text-slate-700 sm:grid-cols-2 print:grid-cols-2 print:gap-1 print:text-[8px] print:leading-tight">
+                    {supplementNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="rounded-md bg-white px-3 py-2 print:px-2 print:py-1"
+                      >
+                        {note.content}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {latestAnthro &&
               latestSkinfolds &&
               latestGirths &&
@@ -2142,7 +2197,7 @@ export default async function ClientDetailPage({
               latestCalc ? (
                 <div className="space-y-5 print:space-y-2">
                   <div>
-                    <h3 className="mb-3 border-l-4 border-emerald-700 pl-3 text-sm font-semibold text-slate-900 print:mb-1 print:pl-2 print:text-[10px]">
+                    <h3 className="mb-3 border-l-4 border-emerald-700 pl-3 text-sm font-semibold text-slate-900 print:mb-1 print:mt-4 print:pl-2 print:text-[10px]">
                       Composicion corporal
                     </h3>
                     <ComponentBar calc={latestCalc} />
@@ -2295,6 +2350,20 @@ export default async function ClientDetailPage({
             <SectionTitle title="Historial y notas" />
             <form action={addClientNote} className="space-y-3">
               <input type="hidden" name="client_id" value={client.id} />
+              <div className="max-w-xs space-y-1">
+                <label htmlFor="note_type" className={labelClass}>
+                  Tipo de nota
+                </label>
+                <select
+                  id="note_type"
+                  name="note_type"
+                  defaultValue="normal"
+                  className={inputClass}
+                >
+                  <option value="normal">Normal</option>
+                  <option value="supplement">Suplemento</option>
+                </select>
+              </div>
               <textarea
                 name="content"
                 rows={4}
@@ -2313,33 +2382,50 @@ export default async function ClientDetailPage({
 
             <div className="mt-5 divide-y divide-slate-100">
               {notes.length ? (
-                notes.map((note) => (
-                  <article key={note.id} className="py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className={labelClass}>
-                          {formatDate(note.created_at)}
+                notes.map((note) => {
+                  const isSupplement = note.note_type === "supplement";
+
+                  return (
+                    <article key={note.id} className="py-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className={labelClass}>
+                              {formatDate(note.created_at)}
+                            </div>
+                            {isSupplement ? (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase text-emerald-800">
+                                Suplemento
+                              </span>
+                            ) : null}
+                          </div>
+                          <p
+                            className={`mt-2 whitespace-pre-wrap text-sm leading-6 ${
+                              isSupplement
+                                ? "text-emerald-950"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            {note.content}
+                          </p>
                         </div>
-                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                          {note.content}
-                        </p>
+                        <form action={deleteClientNote}>
+                          <input
+                            type="hidden"
+                            name="client_id"
+                            value={client.id}
+                          />
+                          <input type="hidden" name="note_id" value={note.id} />
+                          <SubmitButton
+                            className="inline-flex h-8 w-8 items-center cursor-pointer justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                            ariaLabel="Eliminar nota"
+                            icon="trash"
+                          />
+                        </form>
                       </div>
-                      <form action={deleteClientNote}>
-                        <input
-                          type="hidden"
-                          name="client_id"
-                          value={client.id}
-                        />
-                        <input type="hidden" name="note_id" value={note.id} />
-                        <SubmitButton
-                          className="inline-flex h-8 w-8 items-center cursor-pointer justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                          ariaLabel="Eliminar nota"
-                          icon="trash"
-                        />
-                      </form>
-                    </div>
-                  </article>
-                ))
+                    </article>
+                  );
+                })
               ) : (
                 <p className="py-6 text-sm text-slate-500">
                   Sin historial todavia. Anade la primera nota despues de una

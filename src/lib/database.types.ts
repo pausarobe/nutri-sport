@@ -125,6 +125,7 @@ export type Database = {
           user_id: string;
           client_id: string;
           content: string;
+          note_type: "normal" | "supplement";
           created_at: string;
         };
         Insert: {
@@ -132,6 +133,7 @@ export type Database = {
           user_id: string;
           client_id: string;
           content: string;
+          note_type?: "normal" | "supplement";
           created_at?: string;
         };
         Update: {
@@ -139,6 +141,7 @@ export type Database = {
           user_id?: string;
           client_id?: string;
           content?: string;
+          note_type?: "normal" | "supplement";
           created_at?: string;
         };
         Relationships: [

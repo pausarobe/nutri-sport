@@ -28,7 +28,8 @@ type NutritionPlanFormProps = {
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
-const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-400";
+const labelClass =
+  "text-xs font-semibold uppercase tracking-wide text-slate-400";
 const panelClass = "rounded-lg border border-slate-200 bg-slate-50 p-4";
 
 const activityFactors = [
@@ -90,16 +91,26 @@ export function NutritionPlanForm({
   reference,
 }: NutritionPlanFormProps) {
   const [method, setMethod] = useState(settings.method);
-  const [leanMassKg, setLeanMassKg] = useState(numberValue(settings.leanMassKg));
-  const [activityFactor, setActivityFactor] = useState(String(settings.activityFactor));
-  const [thermalEffect, setThermalEffect] = useState(thermalOptionValue(settings.thermalEffect));
+  const [leanMassKg, setLeanMassKg] = useState(
+    numberValue(settings.leanMassKg),
+  );
+  const [activityFactor, setActivityFactor] = useState(
+    String(settings.activityFactor),
+  );
+  const [thermalEffect, setThermalEffect] = useState(
+    thermalOptionValue(settings.thermalEffect),
+  );
   const [sessions, setSessions] = useState<ExerciseSession[]>(
     settings.exerciseSessions.length
       ? settings.exerciseSessions
       : [{ mets: null, durationMin: null, daysPerWeek: 1 }],
   );
-  const [calorieTarget, setCalorieTarget] = useState(numberValue(settings.calorieTarget));
-  const [proteinPct, setProteinPct] = useState(numberValue(settings.proteinPct));
+  const [calorieTarget, setCalorieTarget] = useState(
+    numberValue(settings.calorieTarget),
+  );
+  const [proteinPct, setProteinPct] = useState(
+    numberValue(settings.proteinPct),
+  );
   const [carbsPct, setCarbsPct] = useState(numberValue(settings.carbsPct));
   const [fatPct, setFatPct] = useState(numberValue(settings.fatPct));
   const [mealRows, setMealRows] = useState(meals);
@@ -136,7 +147,9 @@ export function NutritionPlanForm({
     sex: reference.sex,
   });
   const macroTotal =
-    currentSettings.proteinPct + currentSettings.carbsPct + currentSettings.fatPct;
+    currentSettings.proteinPct +
+    currentSettings.carbsPct +
+    currentSettings.fatPct;
 
   const updateSession = (
     index: number,
@@ -145,7 +158,9 @@ export function NutritionPlanForm({
   ) => {
     setSessions((previous) =>
       previous.map((session, sessionIndex) =>
-        sessionIndex === index ? { ...session, [key]: parseNumber(value) } : session,
+        sessionIndex === index
+          ? { ...session, [key]: parseNumber(value) }
+          : session,
       ),
     );
   };
@@ -182,11 +197,23 @@ export function NutritionPlanForm({
   return (
     <form action={savePlan} className="space-y-5">
       <input type="hidden" name="client_id" value={clientId} />
-      <input type="hidden" name="reference_weight_kg" value={reference.weightKg ?? ""} />
-      <input type="hidden" name="reference_height_cm" value={reference.heightCm ?? ""} />
+      <input
+        type="hidden"
+        name="reference_weight_kg"
+        value={reference.weightKg ?? ""}
+      />
+      <input
+        type="hidden"
+        name="reference_height_cm"
+        value={reference.heightCm ?? ""}
+      />
       <input type="hidden" name="reference_age" value={reference.age ?? ""} />
       <input type="hidden" name="reference_sex" value={reference.sex ?? ""} />
-      <input type="hidden" name="exercise_sessions" value={JSON.stringify(sessions)} />
+      <input
+        type="hidden"
+        name="exercise_sessions"
+        value={JSON.stringify(sessions)}
+      />
 
       <div className={panelClass}>
         <h3 className="mb-3 text-sm font-semibold text-slate-900">
@@ -245,7 +272,7 @@ export function NutritionPlanForm({
               <div>
                 <div className={labelClass}>Edad</div>
                 <div className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600">
-                  {reference.age ?? 25} anos
+                  {reference.age ?? 25} años
                 </div>
               </div>
             </>
@@ -254,7 +281,9 @@ export function NutritionPlanForm({
             <div className={labelClass}>TMB calculada</div>
             <div className="mt-1 text-2xl font-semibold text-emerald-800">
               {Math.round(energy.baseMetabolicRate)}
-              <span className="ml-1 text-sm font-normal text-slate-400">kcal/dia</span>
+              <span className="ml-1 text-sm font-normal text-slate-400">
+                kcal/dia
+              </span>
             </div>
           </div>
         </div>
@@ -266,7 +295,10 @@ export function NutritionPlanForm({
         </h3>
         <div className="space-y-2">
           {activityFactors.map(([value, label]) => (
-            <label key={value} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 transition has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50">
+            <label
+              key={value}
+              className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 transition has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50"
+            >
               <input
                 type="radio"
                 name="activity_factor"
@@ -275,16 +307,21 @@ export function NutritionPlanForm({
                 className="h-4 w-4 accent-emerald-800"
                 onChange={() => setActivityFactor(value)}
               />
-              <span className="flex-1 text-sm font-medium text-slate-700">{label}</span>
-              <span className="text-sm font-semibold text-emerald-800">{value}</span>
+              <span className="flex-1 text-sm font-medium text-slate-700">
+                {label}
+              </span>
+              <span className="text-sm font-semibold text-emerald-800">
+                {value}
+              </span>
             </label>
           ))}
         </div>
         <div className="mt-3 flex justify-between rounded-lg bg-white px-3 py-2 text-sm">
           <span className="text-slate-500">TMB x FA</span>
           <span className="font-semibold text-emerald-800">
-            {Math.round(energy.baseMetabolicRate)} x {currentSettings.activityFactor} ={" "}
-            {Math.round(energy.activity)} kcal/dia
+            {Math.round(energy.baseMetabolicRate)} x{" "}
+            {currentSettings.activityFactor} = {Math.round(energy.activity)}{" "}
+            kcal/dia
           </span>
         </div>
       </div>
@@ -326,7 +363,10 @@ export function NutritionPlanForm({
                 : 0;
 
             return (
-              <div key={index} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[1fr_90px_110px_100px_36px] md:items-center">
+              <div
+                key={index}
+                className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[1fr_90px_110px_100px_36px] md:items-center"
+              >
                 <input
                   type="number"
                   step="0.1"
@@ -336,7 +376,9 @@ export function NutritionPlanForm({
                   placeholder="8.0"
                   className={`${inputClass} text-center`}
                   aria-label="METs"
-                  onChange={(event) => updateSession(index, "mets", event.target.value)}
+                  onChange={(event) =>
+                    updateSession(index, "mets", event.target.value)
+                  }
                 />
                 <input
                   type="number"
@@ -347,7 +389,9 @@ export function NutritionPlanForm({
                   placeholder="3"
                   className={`${inputClass} text-center`}
                   aria-label="Dias por semana"
-                  onChange={(event) => updateSession(index, "daysPerWeek", event.target.value)}
+                  onChange={(event) =>
+                    updateSession(index, "daysPerWeek", event.target.value)
+                  }
                 />
                 <input
                   type="number"
@@ -358,7 +402,9 @@ export function NutritionPlanForm({
                   placeholder="60"
                   className={`${inputClass} text-center`}
                   aria-label="Duracion en minutos"
-                  onChange={(event) => updateSession(index, "durationMin", event.target.value)}
+                  onChange={(event) =>
+                    updateSession(index, "durationMin", event.target.value)
+                  }
                 />
                 <div className="rounded-lg bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-blue-700">
                   {sessionEnergy > 0 ? Math.round(sessionEnergy) : "--"}
@@ -370,7 +416,9 @@ export function NutritionPlanForm({
                     aria-label="Eliminar sesion"
                     onClick={() =>
                       setSessions((previous) =>
-                        previous.filter((_, sessionIndex) => sessionIndex !== index),
+                        previous.filter(
+                          (_, sessionIndex) => sessionIndex !== index,
+                        ),
                       )
                     }
                   >
@@ -414,12 +462,18 @@ export function NutritionPlanForm({
         </div>
         <div className="mt-3 flex justify-between rounded-lg bg-white px-3 py-2 text-sm">
           <span className="text-slate-500">
-            ETA ({Math.round(normalizeThermalEffect(currentSettings.thermalEffect) * 100)}%)
+            ETA (
+            {Math.round(
+              normalizeThermalEffect(currentSettings.thermalEffect) * 100,
+            )}
+            %)
           </span>
           <span className="font-semibold text-pink-700">
             {Math.round(energy.activity + energy.exercise)} x{" "}
-            {Math.round(normalizeThermalEffect(currentSettings.thermalEffect) * 100)}% ={" "}
-            {Math.round(energy.thermal)} kcal/dia
+            {Math.round(
+              normalizeThermalEffect(currentSettings.thermalEffect) * 100,
+            )}
+            % = {Math.round(energy.thermal)} kcal/dia
           </span>
         </div>
       </div>
@@ -430,9 +484,21 @@ export function NutritionPlanForm({
         </h3>
         <div className="grid gap-3 sm:grid-cols-5">
           <MiniStat label="TMB" value={Math.round(energy.baseMetabolicRate)} />
-          <MiniStat label="x FA" value={`x${currentSettings.activityFactor}`} color="#2563eb" />
-          <MiniStat label="+ GIE" value={`+${Math.round(energy.exercise)}`} color="#c45a00" />
-          <MiniStat label="+ ETA" value={`+${Math.round(energy.thermal)}`} color="#be185d" />
+          <MiniStat
+            label="x FA"
+            value={`x${currentSettings.activityFactor}`}
+            color="#2563eb"
+          />
+          <MiniStat
+            label="+ GIE"
+            value={`+${Math.round(energy.exercise)}`}
+            color="#c45a00"
+          />
+          <MiniStat
+            label="+ ETA"
+            value={`+${Math.round(energy.thermal)}`}
+            color="#be185d"
+          />
           <MiniStat label="= GET" value={Math.round(energy.total)} />
         </div>
 
@@ -469,7 +535,11 @@ export function NutritionPlanForm({
                   key={String(label)}
                   type="button"
                   className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                  onClick={() => setCalorieTarget(String(Math.round(energy.total + Number(delta))))}
+                  onClick={() =>
+                    setCalorieTarget(
+                      String(Math.round(energy.total + Number(delta))),
+                    )
+                  }
                 >
                   {label}
                 </button>
@@ -483,9 +553,14 @@ export function NutritionPlanForm({
             </h3>
             <div className="grid gap-3 sm:grid-cols-3">
               {macroRows.map((row) => (
-                <div key={row.name} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div
+                  key={row.name}
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                >
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-700">{row.label}</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      {row.label}
+                    </span>
                     <label className="flex items-center gap-1">
                       <input
                         name={row.name}
@@ -508,7 +583,10 @@ export function NutritionPlanForm({
                       }}
                     />
                   </div>
-                  <div className="mt-2 text-lg font-semibold" style={{ color: row.color }}>
+                  <div
+                    className="mt-2 text-lg font-semibold"
+                    style={{ color: row.color }}
+                  >
                     {row.grams} g
                   </div>
                   <div className="text-xs text-slate-400">
@@ -527,14 +605,24 @@ export function NutritionPlanForm({
       </div>
 
       <div className={panelClass}>
-        <h3 className="text-sm font-semibold text-slate-900">Distribucion por comida</h3>
+        <h3 className="text-sm font-semibold text-slate-900">
+          Distribucion por comida
+        </h3>
         <p className="mt-1 text-sm text-slate-500">
-          El porcentaje reparte automaticamente los gramos diarios de cada macro.
+          El porcentaje reparte automaticamente los gramos diarios de cada
+          macro.
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           {mealRows.map((meal, index) => (
-            <div key={meal.name} className="rounded-lg border border-slate-200 bg-white p-3">
-              <input type="hidden" name={`meal_${index}_name`} value={meal.name} />
+            <div
+              key={meal.name}
+              className="rounded-lg border border-slate-200 bg-white p-3"
+            >
+              <input
+                type="hidden"
+                name={`meal_${index}_name`}
+                value={meal.name}
+              />
               <div className="mb-2 text-center text-sm font-semibold text-slate-900">
                 {meal.name}
               </div>
@@ -563,9 +651,15 @@ export function NutritionPlanForm({
                 ["Hidr.", energy.carbsG, "#c45a00"],
                 ["Gras.", energy.fatG, "#be185d"],
               ].map(([label, grams, color]) => (
-                <div key={String(label)} className="flex justify-between border-t border-slate-100 py-1 text-xs">
+                <div
+                  key={String(label)}
+                  className="flex justify-between border-t border-slate-100 py-1 text-xs"
+                >
                   <span className="text-slate-400">{label}</span>
-                  <span className="font-semibold" style={{ color: String(color) }}>
+                  <span
+                    className="font-semibold"
+                    style={{ color: String(color) }}
+                  >
                     {Math.round((Number(grams) * meal.pct) / 100)} g
                   </span>
                 </div>

@@ -57,6 +57,7 @@ create table if not exists public.client_notes (
   user_id uuid not null references auth.users(id) on delete cascade,
   client_id uuid not null references public.clients(id) on delete cascade,
   content text not null,
+  note_type text not null default 'normal' check (note_type in ('normal', 'supplement')),
   created_at timestamptz not null default now()
 );
 
@@ -121,6 +122,9 @@ create index if not exists plans_user_id_client_id_idx
 
 create index if not exists client_notes_client_id_created_at_idx
   on public.client_notes(client_id, created_at desc);
+
+create index if not exists client_notes_client_id_note_type_created_at_idx
+  on public.client_notes(client_id, note_type, created_at desc);
 
 create index if not exists client_files_client_id_created_at_idx
   on public.client_files(client_id, created_at desc);
