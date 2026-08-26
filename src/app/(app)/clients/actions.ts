@@ -90,6 +90,11 @@ function positiveFormNumber(formData: FormData, key: string) {
   return value && value > 0 ? value : null;
 }
 
+function nonNegativeFormNumber(formData: FormData, key: string) {
+  const value = optionalFormNumber(formData, key);
+  return value !== null && value >= 0 ? value : null;
+}
+
 function positiveNumber(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value ?? "");
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -150,13 +155,14 @@ function energySettingsPayload(formData: FormData): EnergySettings {
     exerciseSessions,
     calorieTarget: positiveFormNumber(formData, "calorie_target"),
     proteinPct:
-      positiveFormNumber(formData, "protein_pct") ??
+      nonNegativeFormNumber(formData, "protein_pct") ??
       DEFAULT_ENERGY_SETTINGS.proteinPct,
     carbsPct:
-      positiveFormNumber(formData, "carbs_pct") ??
+      nonNegativeFormNumber(formData, "carbs_pct") ??
       DEFAULT_ENERGY_SETTINGS.carbsPct,
     fatPct:
-      positiveFormNumber(formData, "fat_pct") ?? DEFAULT_ENERGY_SETTINGS.fatPct,
+      nonNegativeFormNumber(formData, "fat_pct") ??
+      DEFAULT_ENERGY_SETTINGS.fatPct,
   };
 }
 

@@ -56,12 +56,20 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseNonNegativeNumber(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 function thermalOptionValue(value: number | null | undefined) {
   return normalizeThermalEffect(value).toFixed(2);
 }
 
 function formatNumber(value: number, decimals = 0) {
-  return value.toFixed(decimals).replace(/\.0$/, "");
+  return value
+    .toFixed(decimals)
+    .replace(/(\.\d*?)0+$/, "$1")
+    .replace(/\.$/, "");
 }
 
 function MiniStat({
@@ -123,9 +131,9 @@ export function NutritionPlanForm({
       thermalEffect: normalizeThermalEffect(parseNumber(thermalEffect)),
       exerciseSessions: sessions,
       calorieTarget: parseNumber(calorieTarget),
-      proteinPct: parseNumber(proteinPct) ?? 30,
-      carbsPct: parseNumber(carbsPct) ?? 45,
-      fatPct: parseNumber(fatPct) ?? 25,
+      proteinPct: parseNonNegativeNumber(proteinPct) ?? 30,
+      carbsPct: parseNonNegativeNumber(carbsPct) ?? 45,
+      fatPct: parseNonNegativeNumber(fatPct) ?? 25,
     }),
     [
       activityFactor,
@@ -164,6 +172,37 @@ export function NutritionPlanForm({
       ),
     );
   };
+
+  const pctFromGramsPerKg = (gramsPerKg: number) =>
+    formatNumber((gramsPerKg * energy.weight * 4 * 100) / energy.calories, 1);
+
+  const updateFatFromProteinAndCarbs = (
+    nextProteinPct: string,
+    nextCarbsPct: string,
+  ) => {
+    const nextProtein = parseNonNegativeNumber(nextProteinPct) ?? 0;
+    const nextCarbs = parseNonNegativeNumber(nextCarbsPct) ?? 0;
+    setFatPct(formatNumber(Math.max(0, 100 - nextProtein - nextCarbs), 1));
+  };
+
+  const updateProteinGramsPerKg = (value: string) => {
+    const gramsPerKg = parseNonNegativeNumber(value);
+    const nextProteinPct =
+      gramsPerKg === null ? "" : pctFromGramsPerKg(gramsPerKg);
+
+    setProteinPct(nextProteinPct);
+    updateFatFromProteinAndCarbs(nextProteinPct, carbsPct);
+  };
+
+  const updateCarbsGramsPerKg = (value: string) => {
+    const gramsPerKg = parseNonNegativeNumber(value);
+    const nextCarbsPct =
+      gramsPerKg === null ? "" : pctFromGramsPerKg(gramsPerKg);
+
+    setCarbsPct(nextCarbsPct);
+    updateFatFromProteinAndCarbs(proteinPct, nextCarbsPct);
+  };
+
   const macroRows = [
     {
       label: "Proteinas",
@@ -171,6 +210,8 @@ export function NutritionPlanForm({
       pct: proteinPct,
       setPct: setProteinPct,
       grams: energy.proteinG,
+      gramsPerKg: energy.proteinG / energy.weight,
+      onGramsPerKgChange: updateProteinGramsPerKg,
       kcalPerGram: 4,
       color: "#2563eb",
     },
@@ -180,6 +221,8 @@ export function NutritionPlanForm({
       pct: carbsPct,
       setPct: setCarbsPct,
       grams: energy.carbsG,
+      gramsPerKg: energy.carbsG / energy.weight,
+      onGramsPerKgChange: updateCarbsGramsPerKg,
       kcalPerGram: 4,
       color: "#c45a00",
     },
@@ -189,6 +232,8 @@ export function NutritionPlanForm({
       pct: fatPct,
       setPct: setFatPct,
       grams: energy.fatG,
+      gramsPerKg: null,
+      onGramsPerKgChange: null,
       kcalPerGram: 9,
       color: "#be185d",
     },
@@ -565,7 +610,7 @@ export function NutritionPlanForm({
                       <input
                         name={row.name}
                         type="number"
-                        step="1"
+                        step="0.1"
                         min="0"
                         value={row.pct}
                         className="w-14 rounded-md border border-slate-300 px-2 py-1 text-center text-sm font-semibold outline-none focus:border-emerald-700"
@@ -574,11 +619,36 @@ export function NutritionPlanForm({
                       <span className="text-xs text-slate-400">%</span>
                     </label>
                   </div>
+                  {row.gramsPerKg !== null && row.onGramsPerKgChange ? (
+                    <label className="mb-2 block">
+                      <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+                        g/kg peso
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          inputMode="decimal"
+                          value={formatNumber(row.gramsPerKg, 2)}
+                          className="w-full rounded-md border border-slate-300 px-2 py-1 text-center text-sm font-semibold outline-none focus:border-emerald-700"
+                          aria-label={`${row.label} en gramos por kilogramo`}
+                          onChange={(event) =>
+                            row.onGramsPerKgChange?.(event.target.value)
+                          }
+                        />
+                        <span className="text-xs text-slate-400">g/kg</span>
+                      </div>
+                    </label>
+                  ) : null}
                   <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
                     <div
                       className="h-full rounded-full"
                       style={{
-                        width: `${Math.min(100, parseNumber(row.pct) ?? 0)}%`,
+                        width: `${Math.min(
+                          100,
+                          parseNonNegativeNumber(row.pct) ?? 0,
+                        )}%`,
                         backgroundColor: row.color,
                       }}
                     />
