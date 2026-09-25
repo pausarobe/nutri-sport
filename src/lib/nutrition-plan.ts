@@ -1,21 +1,27 @@
 import type { ClientSex, Json } from "@/lib/database.types";
 
-export type ExerciseSession = {
+export type ActivityFactorLevel =
+  | "sedentary"
+  | "very_light"
+  | "light"
+  | "moderate"
+  | "intense";
+
+export type WeekDayId =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export type TrainingDay = {
+  day: WeekDayId;
+  mode: "rest" | "training";
+  name: string;
   mets: number | null;
   durationMin: number | null;
-  daysPerWeek: number | null;
-};
-
-export type EnergySettings = {
-  method: "cunningham" | "harris";
-  leanMassKg: number | null;
-  activityFactor: number;
-  thermalEffect: number;
-  exerciseSessions: ExerciseSession[];
-  calorieTarget: number | null;
-  proteinPct: number;
-  carbsPct: number;
-  fatPct: number;
 };
 
 export type MealDistribution = {
@@ -23,34 +29,150 @@ export type MealDistribution = {
   pct: number;
 };
 
+export type NutritionContextSettings = {
+  key: string;
+  label: string;
+  calorieTarget: number | null;
+  proteinPct: number;
+  carbsPct: number;
+  fatPct: number;
+  meals: MealDistribution[];
+};
+
+export type EnergySettings = {
+  version: 2;
+  method: "cunningham" | "harris";
+  leanMassKg: number | null;
+  activityLevel: ActivityFactorLevel;
+  activityFactor: number;
+  thermalEffect: number;
+  week: TrainingDay[];
+  contexts: NutritionContextSettings[];
+  activeContextKey: string;
+  calculationDescription?: string;
+  legacyFormat?: boolean;
+};
+
+export type EnergyDayResult = TrainingDay & {
+  netExercise: number;
+  total: number;
+  increment: number;
+};
+
+export const WEEK_DAYS: ReadonlyArray<{ id: WeekDayId; label: string }> = [
+  { id: "monday", label: "Lunes" },
+  { id: "tuesday", label: "Martes" },
+  { id: "wednesday", label: "Miércoles" },
+  { id: "thursday", label: "Jueves" },
+  { id: "friday", label: "Viernes" },
+  { id: "saturday", label: "Sábado" },
+  { id: "sunday", label: "Domingo" },
+];
+
 export const DEFAULT_MEAL_DISTRIBUTION: MealDistribution[] = [
   { name: "Desayuno", pct: 20 },
-  { name: "Media manana", pct: 10 },
+  { name: "Media mañana", pct: 10 },
   { name: "Comida", pct: 30 },
   { name: "Merienda", pct: 15 },
   { name: "Cena", pct: 20 },
   { name: "Recena", pct: 5 },
 ];
 
-export const DEFAULT_ENERGY_SETTINGS: EnergySettings = {
-  method: "cunningham",
-  leanMassKg: null,
-  activityFactor: 1.55,
-  thermalEffect: 0.1,
-  exerciseSessions: [{ mets: null, durationMin: null, daysPerWeek: 1 }],
+export const ACTIVITY_FACTOR_OPTIONS: ReadonlyArray<{
+  level: ActivityFactorLevel;
+  label: string;
+  male: number;
+  female: number;
+}> = [
+  { level: "sedentary", label: "Sedentario", male: 1.2, female: 1.2 },
+  { level: "very_light", label: "Muy ligera", male: 1.3, female: 1.3 },
+  { level: "light", label: "Ligera", male: 1.6, female: 1.5 },
+  { level: "moderate", label: "Moderada", male: 1.7, female: 1.6 },
+  { level: "intense", label: "Intensa", male: 2.1, female: 1.9 },
+];
+
+const DEFAULT_WEEK: TrainingDay[] = WEEK_DAYS.map(({ id }) => ({
+  day: id,
+  mode: "rest",
+  name: "",
+  mets: null,
+  durationMin: null,
+}));
+
+const DEFAULT_REST_CONTEXT: NutritionContextSettings = {
+  key: "rest",
+  label: "Día de descanso",
   calorieTarget: null,
   proteinPct: 30,
   carbsPct: 45,
   fatPct: 25,
+  meals: DEFAULT_MEAL_DISTRIBUTION,
 };
 
-function objectValue(value: Json | null | undefined): { [key: string]: Json | undefined } {
+export const DEFAULT_ENERGY_SETTINGS: EnergySettings = {
+  version: 2,
+  method: "cunningham",
+  leanMassKg: null,
+  activityLevel: "light",
+  activityFactor: 1.6,
+  thermalEffect: 0.1,
+  week: DEFAULT_WEEK,
+  contexts: [DEFAULT_REST_CONTEXT],
+  activeContextKey: "rest",
+};
+
+function objectValue(value: Json | null | undefined): Record<string, Json | undefined> {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 function numberFromJson(value: Json | undefined, fallback: number | null) {
+  if (value === null || value === undefined || value === "") return fallback;
   const parsed = typeof value === "number" ? value : Number(value ?? "");
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function stringFromJson(value: Json | undefined, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+export function parseActivityFactorLevel(value: unknown) {
+  return ACTIVITY_FACTOR_OPTIONS.some((option) => option.level === value)
+    ? (value as ActivityFactorLevel)
+    : null;
+}
+
+export function activityFactorForSex(
+  level: ActivityFactorLevel,
+  sex: ClientSex | null | undefined,
+) {
+  const option =
+    ACTIVITY_FACTOR_OPTIONS.find((candidate) => candidate.level === level) ??
+    ACTIVITY_FACTOR_OPTIONS[2];
+
+  return sex === "female" ? option.female : option.male;
+}
+
+function activityLevelFromLegacyFactor(factor: number) {
+  const legacyLevels: Array<[number, ActivityFactorLevel]> = [
+    [1.2, "sedentary"],
+    [1.375, "very_light"],
+    [1.55, "light"],
+    [1.725, "moderate"],
+    [1.9, "intense"],
+  ];
+  const legacyMatch = legacyLevels.find(
+    ([legacyFactor]) => Math.abs(legacyFactor - factor) < 0.001,
+  );
+
+  if (legacyMatch) return legacyMatch[1];
+
+  return ACTIVITY_FACTOR_OPTIONS.reduce((closest, option) => {
+    const average = (option.male + option.female) / 2;
+    const closestAverage = (closest.male + closest.female) / 2;
+    return Math.abs(average - factor) < Math.abs(closestAverage - factor)
+      ? option
+      : closest;
+  }).level;
 }
 
 export function normalizeThermalEffect(value: number | null | undefined) {
@@ -58,75 +180,196 @@ export function normalizeThermalEffect(value: number | null | undefined) {
     return DEFAULT_ENERGY_SETTINGS.thermalEffect;
   }
 
-  return value > 1 ? value / 100 : value;
+  const normalized = value > 1 ? value / 100 : value;
+  return Math.min(0.5, normalized);
 }
 
-function exerciseSessionsFromJson(source: { [key: string]: Json | undefined }) {
-  if (Array.isArray(source.exerciseSessions)) {
-    const sessions = source.exerciseSessions
-      .map((row) => {
-        if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+export function trainingContextKey(name: string) {
+  const normalized = name
+    .trim()
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `training:${normalized || "entrenamiento"}`;
+}
 
-        return {
-          mets: numberFromJson(row.mets, null),
-          durationMin: numberFromJson(row.durationMin, null),
-          daysPerWeek: numberFromJson(row.daysPerWeek, 1),
-        };
-      })
-      .filter((row): row is ExerciseSession => Boolean(row));
-
-    if (sessions.length) return sessions;
+function mealsFromJson(value: Json | null | undefined) {
+  if (!Array.isArray(value)) {
+    return DEFAULT_MEAL_DISTRIBUTION.map((meal) => ({ ...meal }));
   }
 
-  return [
-    {
-      mets: numberFromJson(source.exerciseMets, null),
-      durationMin: numberFromJson(source.exerciseDurationMin, null),
-      daysPerWeek: numberFromJson(source.exerciseDaysPerWeek, 1),
-    },
+  const rows = value
+    .map((row, index) => {
+      if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+      const fallback = DEFAULT_MEAL_DISTRIBUTION[index];
+      const name = stringFromJson(row.name, fallback?.name ?? `Comida ${index + 1}`);
+      const pct = numberFromJson(row.pct, fallback?.pct ?? 0) ?? 0;
+      return { name, pct: Math.max(0, Math.min(100, pct)) };
+    })
+    .filter((row): row is MealDistribution => Boolean(row));
+
+  return rows.length === 6
+    ? rows
+    : DEFAULT_MEAL_DISTRIBUTION.map((meal) => ({ ...meal }));
+}
+
+function defaultContext(key: string, label: string): NutritionContextSettings {
+  return {
+    key,
+    label,
+    calorieTarget: null,
+    proteinPct: 30,
+    carbsPct: 45,
+    fatPct: 25,
+    meals: DEFAULT_MEAL_DISTRIBUTION.map((meal) => ({ ...meal })),
+  };
+}
+
+function weekFromJson(source: Record<string, Json | undefined>): TrainingDay[] {
+  if (Array.isArray(source.week)) {
+    const byDay = new Map<WeekDayId, TrainingDay>();
+    for (const row of source.week) {
+      if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+      const day = WEEK_DAYS.find((candidate) => candidate.id === row.day)?.id;
+      if (!day) continue;
+      byDay.set(day, {
+        day,
+        mode: row.mode === "training" ? "training" : "rest",
+        name: stringFromJson(row.name),
+        mets: numberFromJson(row.mets, null),
+        durationMin: numberFromJson(row.durationMin, null),
+      });
+    }
+    if (byDay.size) {
+      return WEEK_DAYS.map(({ id }) =>
+        byDay.get(id) ?? { ...DEFAULT_WEEK.find((row) => row.day === id)! },
+      );
+    }
+  }
+
+  // Compatibilidad: distribuye las sesiones del formato anterior entre los siete días.
+  const legacy = Array.isArray(source.exerciseSessions)
+    ? source.exerciseSessions
+    : source.exerciseMets
+      ? [
+          {
+            mets: source.exerciseMets,
+            durationMin: source.exerciseDurationMin,
+            daysPerWeek: source.exerciseDaysPerWeek,
+          },
+        ]
+      : [];
+  const week = DEFAULT_WEEK.map((day) => ({ ...day }));
+  let cursor = 0;
+  legacy.forEach((row, sessionIndex) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return;
+    const days = Math.max(
+      0,
+      Math.min(7 - cursor, Math.round(numberFromJson(row.daysPerWeek, 1) ?? 1)),
+    );
+    for (let index = 0; index < days; index += 1) {
+      week[cursor] = {
+        ...week[cursor],
+        mode: "training",
+        name: `Entrenamiento ${sessionIndex + 1}`,
+        mets: numberFromJson(row.mets, null),
+        durationMin: numberFromJson(row.durationMin, null),
+      };
+      cursor += 1;
+    }
+  });
+  return week;
+}
+
+function contextsFromJson(
+  source: Record<string, Json | undefined>,
+  week: TrainingDay[],
+) {
+  const saved = new Map<string, NutritionContextSettings>();
+  if (Array.isArray(source.contexts)) {
+    for (const row of source.contexts) {
+      if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+      const key = stringFromJson(row.key);
+      if (!key) continue;
+      saved.set(key, {
+        key,
+        label: stringFromJson(
+          row.label,
+          key === "rest" ? "Día de descanso" : "Entrenamiento",
+        ),
+        calorieTarget: numberFromJson(row.calorieTarget, null),
+        proteinPct: numberFromJson(row.proteinPct, 30) ?? 30,
+        carbsPct: numberFromJson(row.carbsPct, 45) ?? 45,
+        fatPct: numberFromJson(row.fatPct, 25) ?? 25,
+        meals: mealsFromJson(row.meals),
+      });
+    }
+  }
+
+  // Compatibilidad con el objetivo único anterior.
+  if (!saved.size) {
+    const legacy = defaultContext("rest", "Día de descanso");
+    legacy.calorieTarget = numberFromJson(source.calorieTarget, null);
+    legacy.proteinPct = numberFromJson(source.proteinPct, 30) ?? 30;
+    legacy.carbsPct = numberFromJson(source.carbsPct, 45) ?? 45;
+    legacy.fatPct = numberFromJson(source.fatPct, 25) ?? 25;
+    saved.set("rest", legacy);
+  }
+
+  const required: Array<{ key: string; label: string }> = [
+    { key: "rest", label: "Día de descanso" },
   ];
+  for (const day of week) {
+    if (day.mode !== "training") continue;
+    const label = day.name.trim() || "Entrenamiento";
+    const key = trainingContextKey(label);
+    if (!required.some((row) => row.key === key)) required.push({ key, label });
+  }
+
+  return required.map(({ key, label }) => {
+    const context = saved.get(key) ?? defaultContext(key, label);
+    return {
+      ...context,
+      label,
+      meals: context.meals.map((meal) => ({ ...meal })),
+    };
+  });
 }
 
 export function energySettingsFromJson(value: Json | null | undefined): EnergySettings {
   const source = objectValue(value);
   const method = source.method === "harris" ? "harris" : "cunningham";
+  const storedActivityFactor =
+    numberFromJson(source.activityFactor, DEFAULT_ENERGY_SETTINGS.activityFactor) ??
+    DEFAULT_ENERGY_SETTINGS.activityFactor;
+  const activityLevel =
+    parseActivityFactorLevel(source.activityLevel) ??
+    activityLevelFromLegacyFactor(storedActivityFactor);
+  const week = weekFromJson(source);
+  const contexts = contextsFromJson(source, week);
+  const requestedActive = stringFromJson(source.activeContextKey, "rest");
 
   return {
+    version: 2,
     method,
-    leanMassKg: numberFromJson(source.leanMassKg, DEFAULT_ENERGY_SETTINGS.leanMassKg),
-    activityFactor:
-      numberFromJson(source.activityFactor, DEFAULT_ENERGY_SETTINGS.activityFactor) ??
-      DEFAULT_ENERGY_SETTINGS.activityFactor,
-    thermalEffect: normalizeThermalEffect(
-      numberFromJson(source.thermalEffect, DEFAULT_ENERGY_SETTINGS.thermalEffect),
-    ),
-    exerciseSessions: exerciseSessionsFromJson(source),
-    calorieTarget: numberFromJson(source.calorieTarget, DEFAULT_ENERGY_SETTINGS.calorieTarget),
-    proteinPct:
-      numberFromJson(source.proteinPct, DEFAULT_ENERGY_SETTINGS.proteinPct) ??
-      DEFAULT_ENERGY_SETTINGS.proteinPct,
-    carbsPct:
-      numberFromJson(source.carbsPct, DEFAULT_ENERGY_SETTINGS.carbsPct) ??
-      DEFAULT_ENERGY_SETTINGS.carbsPct,
-    fatPct:
-      numberFromJson(source.fatPct, DEFAULT_ENERGY_SETTINGS.fatPct) ??
-      DEFAULT_ENERGY_SETTINGS.fatPct,
+    leanMassKg: numberFromJson(source.leanMassKg, null),
+    activityLevel,
+    activityFactor: storedActivityFactor,
+    thermalEffect: normalizeThermalEffect(numberFromJson(source.thermalEffect, 0.1)),
+    week,
+    contexts,
+    activeContextKey: contexts.some((context) => context.key === requestedActive)
+      ? requestedActive
+      : "rest",
+    calculationDescription: stringFromJson(source.calculationDescription) || undefined,
+    legacyFormat: !Array.isArray(source.contexts),
   };
 }
 
 export function mealDistributionFromJson(value: Json | null | undefined) {
-  if (!Array.isArray(value)) return DEFAULT_MEAL_DISTRIBUTION;
-
-  const rows = value
-    .map((row) => {
-      if (!row || typeof row !== "object" || Array.isArray(row)) return null;
-      const name = typeof row.name === "string" ? row.name : "";
-      const pct = numberFromJson(row.pct, 0) ?? 0;
-      return name ? { name, pct } : null;
-    })
-    .filter((row): row is MealDistribution => Boolean(row));
-
-  return rows.length ? rows : DEFAULT_MEAL_DISTRIBUTION;
+  return mealsFromJson(value);
 }
 
 export function calculateEnergyPlan({
@@ -145,43 +388,95 @@ export function calculateEnergyPlan({
   const weight = weightKg && weightKg > 0 ? weightKg : 70;
   const height = heightCm && heightCm > 0 ? heightCm : 170;
   const years = age && age > 0 ? age : 25;
-  const leanMass = settings.leanMassKg && settings.leanMassKg > 0 ? settings.leanMassKg : weight * 0.75;
+  const leanMass =
+    settings.leanMassKg && settings.leanMassKg > 0
+      ? settings.leanMassKg
+      : weight * 0.75;
   const baseMetabolicRate =
     settings.method === "cunningham"
       ? 500 + 22 * leanMass
       : sex === "female"
         ? 447.593 + 9.247 * weight + 3.098 * height - 4.33 * years
         : 88.362 + 13.397 * weight + 4.799 * height - 5.677 * years;
-  const exercise = settings.exerciseSessions.reduce((total, session) => {
-    const mets = session.mets ?? 0;
-    const durationMin = session.durationMin ?? 0;
-    const daysPerWeek = session.daysPerWeek ?? 0;
-
-    return mets > 0 && durationMin > 0 && daysPerWeek > 0
-      ? total + (mets * weight * (durationMin / 60) * daysPerWeek) / 7
-      : total;
-  }, 0);
-  const activity = baseMetabolicRate * settings.activityFactor;
+  const activityFactor = activityFactorForSex(settings.activityLevel, sex);
+  const baseBeforeThermal = baseMetabolicRate * activityFactor;
   const thermalEffect = normalizeThermalEffect(settings.thermalEffect);
-  const thermal = (activity + exercise) * thermalEffect;
-  const total = activity + exercise + thermal;
-  const calories = Math.round(settings.calorieTarget && settings.calorieTarget > 0 ? settings.calorieTarget : total);
-  const proteinG = Math.round((calories * settings.proteinPct) / 100 / 4);
-  const carbsG = Math.round((calories * settings.carbsPct) / 100 / 4);
-  const fatG = Math.round((calories * settings.fatPct) / 100 / 9);
+  const divisor = Math.max(0.5, 1 - thermalEffect);
+  const restTotal = baseBeforeThermal / divisor;
+  const days: EnergyDayResult[] = settings.week.map((day) => {
+    const mets = day.mode === "training" ? day.mets ?? 0 : 0;
+    const durationMin = day.mode === "training" ? day.durationMin ?? 0 : 0;
+    const netExercise =
+      mets > 1 && durationMin > 0
+        ? (mets - 1) * weight * (durationMin / 60)
+        : 0;
+    const total = (baseBeforeThermal + netExercise) / divisor;
+    return { ...day, netExercise, total, increment: total - restTotal };
+  });
+  const averageExercise =
+    days.reduce((sum, day) => sum + day.netExercise, 0) / 7;
+  const weeklyAverage = days.reduce((sum, day) => sum + day.total, 0) / 7;
+  const activeContext =
+    settings.contexts.find((context) => context.key === settings.activeContextKey) ??
+    settings.contexts[0] ??
+    DEFAULT_REST_CONTEXT;
+  const activeReference =
+    activeContext.key === "rest"
+      ? restTotal
+      : (() => {
+          const matching = days.filter(
+            (day) =>
+              day.mode === "training" &&
+              trainingContextKey(day.name || "Entrenamiento") === activeContext.key,
+          );
+          return matching.length
+            ? matching.reduce((sum, day) => sum + day.total, 0) / matching.length
+            : restTotal;
+        })();
+  const calories = Math.round(
+    activeContext.calorieTarget && activeContext.calorieTarget > 0
+      ? activeContext.calorieTarget
+      : activeReference,
+  );
+  const proteinG = Math.round((calories * activeContext.proteinPct) / 100 / 4);
+  const carbsG = Math.round((calories * activeContext.carbsPct) / 100 / 4);
+  const fatG = Math.round((calories * activeContext.fatPct) / 100 / 9);
 
   return {
     weight,
     height,
     leanMass,
     baseMetabolicRate,
-    activity,
-    exercise,
-    thermal,
-    total,
+    activityFactor,
+    baseBeforeThermal,
+    restTotal,
+    days,
+    weeklyAverage,
+    averageExercise,
+    activeReference,
+    // Alias conservados para consumidores antiguos.
+    activity: baseBeforeThermal,
+    exercise: averageExercise,
+    thermal: weeklyAverage - baseBeforeThermal - averageExercise,
+    total: weeklyAverage,
     calories,
     proteinG,
     carbsG,
     fatG,
   };
+}
+
+export function contextReference(
+  key: string,
+  energy: ReturnType<typeof calculateEnergyPlan>,
+) {
+  if (key === "rest") return energy.restTotal;
+  const matching = energy.days.filter(
+    (day) =>
+      day.mode === "training" &&
+      trainingContextKey(day.name || "Entrenamiento") === key,
+  );
+  return matching.length
+    ? matching.reduce((sum, day) => sum + day.total, 0) / matching.length
+    : energy.restTotal;
 }

@@ -6,17 +6,17 @@ import {
   calculateMedian,
   formatAnthroNumber,
   GIRTH_FIELDS,
-  hasAllMeasurements,
   DIAMETER_FIELDS,
+  normalizeAnthropometryRace,
   SKINFOLD_FIELDS,
 } from "@/lib/anthropometry";
 import {
+  activityFactorForSex,
   calculateEnergyPlan,
+  contextReference,
   DEFAULT_ENERGY_SETTINGS,
-  DEFAULT_MEAL_DISTRIBUTION,
-  normalizeThermalEffect,
+  energySettingsFromJson,
   type EnergySettings,
-  type ExerciseSession,
 } from "@/lib/nutrition-plan";
 import {
   formString,
@@ -30,12 +30,7 @@ import type { ActivityLevel, ClientSex } from "@/lib/database.types";
 const FILE_BUCKET = "client-files";
 const clientTabPath = (clientId: string, tab: string) =>
   `/clients/${clientId}?tab=${tab}`;
-const CLIENT_SEX_VALUES = [
-  "female",
-  "male",
-  "non_binary",
-  "prefer_not_to_say",
-] satisfies ClientSex[];
+const CLIENT_SEX_VALUES = ["female", "male"] satisfies ClientSex[];
 const ACTIVITY_LEVEL_VALUES = [
   "sedentary",
   "light",
@@ -105,77 +100,37 @@ function measurementGroup(
   prefix: string,
   fields: typeof SKINFOLD_FIELDS,
 ) {
-  return Object.fromEntries(
-    fields.map((field) => {
-      const value = calculateMedian([
+  const raw = Object.fromEntries(
+    fields.map((field) => [
+      field.key,
+      [
         optionalFormNumber(formData, `${prefix}_${field.key}_1`),
         optionalFormNumber(formData, `${prefix}_${field.key}_2`),
         optionalFormNumber(formData, `${prefix}_${field.key}_3`),
-      ]);
-
-      return [field.key, formatAnthroNumber(value)];
-    }),
+      ],
+    ]),
   );
+  const values = Object.fromEntries(
+    fields.map((field) => [
+      field.key,
+      formatAnthroNumber(calculateMedian(raw[field.key])),
+    ]),
+  );
+  return { values, raw };
 }
 
 function energySettingsPayload(formData: FormData): EnergySettings {
-  const method =
-    formString(formData, "energy_method") === "harris"
-      ? "harris"
-      : "cunningham";
-  const rawSessions = formString(formData, "exercise_sessions");
-  let exerciseSessions: ExerciseSession[] =
-    DEFAULT_ENERGY_SETTINGS.exerciseSessions;
-
+  const raw = formString(formData, "energy_settings_payload");
   try {
-    const parsed = JSON.parse(rawSessions);
-
-    if (Array.isArray(parsed)) {
-      const sessions = parsed.map((row) => ({
-        mets: positiveNumber(row?.mets),
-        durationMin: positiveNumber(row?.durationMin),
-        daysPerWeek: positiveNumber(row?.daysPerWeek),
-      }));
-
-      if (sessions.length) exerciseSessions = sessions;
-    }
+    return energySettingsFromJson(JSON.parse(raw));
   } catch {
-    exerciseSessions = DEFAULT_ENERGY_SETTINGS.exerciseSessions;
+    return DEFAULT_ENERGY_SETTINGS;
   }
-
-  return {
-    method,
-    leanMassKg: positiveFormNumber(formData, "lean_mass_kg"),
-    activityFactor:
-      positiveFormNumber(formData, "activity_factor") ??
-      DEFAULT_ENERGY_SETTINGS.activityFactor,
-    thermalEffect: normalizeThermalEffect(
-      positiveFormNumber(formData, "thermal_effect"),
-    ),
-    exerciseSessions,
-    calorieTarget: positiveFormNumber(formData, "calorie_target"),
-    proteinPct:
-      nonNegativeFormNumber(formData, "protein_pct") ??
-      DEFAULT_ENERGY_SETTINGS.proteinPct,
-    carbsPct:
-      nonNegativeFormNumber(formData, "carbs_pct") ??
-      DEFAULT_ENERGY_SETTINGS.carbsPct,
-    fatPct:
-      nonNegativeFormNumber(formData, "fat_pct") ??
-      DEFAULT_ENERGY_SETTINGS.fatPct,
-  };
-}
-
-function mealDistributionPayload(formData: FormData) {
-  return DEFAULT_MEAL_DISTRIBUTION.map((meal, index) => ({
-    name: formString(formData, `meal_${index}_name`) || meal.name,
-    pct: optionalFormNumber(formData, `meal_${index}_pct`) ?? meal.pct,
-  }));
 }
 
 function databaseSetupMessage(message: string | undefined) {
   if (message?.includes("schema cache")) {
-    return "Falta aplicar la migracion de Supabase con las tablas nuevas. Ejecuta el SQL de supabase/migrations/20260811_add_client_detail_sections.sql.";
+    return "Falta aplicar la migración de Supabase. Ejecuta primero las migraciones pendientes de la carpeta supabase/migrations.";
   }
 
   return message ?? "No se pudo guardar.";
@@ -205,7 +160,10 @@ export async function createNutritionClient(formData: FormData) {
   const payload = clientPayload(formData);
 
   if (!payload.name) {
-    redirectWithMessage("/clients/new", "error", "Client name is required.");
+    redirectWithMessage("/clients/new", "error", "El nombre del cliente es obligatorio.");
+  }
+  if (!payload.sex) {
+    redirectWithMessage("/clients/new", "error", "Selecciona hombre o mujer.");
   }
 
   const { data: client, error } = await supabase
@@ -218,7 +176,7 @@ export async function createNutritionClient(formData: FormData) {
     redirectWithMessage(
       "/clients/new",
       "error",
-      error?.message ?? "Could not create client.",
+      error?.message ?? "No se pudo crear el cliente.",
     );
   }
 
@@ -250,7 +208,14 @@ export async function updateNutritionClient(formData: FormData) {
     redirectWithMessage(
       `/clients/${clientId}/edit`,
       "error",
-      "Client name is required.",
+      "El nombre del cliente es obligatorio.",
+    );
+  }
+  if (!payload.sex) {
+    redirectWithMessage(
+      `/clients/${clientId}/edit`,
+      "error",
+      "Selecciona hombre o mujer.",
     );
   }
 
@@ -285,7 +250,7 @@ export async function updateNutritionClient(formData: FormData) {
   redirectWithMessage(
     clientTabPath(clientId, "ficha"),
     "success",
-    "Client updated.",
+    "Cliente actualizado.",
   );
 }
 
@@ -309,14 +274,14 @@ export async function deleteNutritionClient(formData: FormData) {
 
   if (error) {
     redirectWithMessage(
-      clientTabPath(clientId, "danger"),
+      clientTabPath(clientId, "antropometria"),
       "error",
       databaseSetupMessage(error.message),
     );
   }
 
   revalidatePath("/clients");
-  redirectWithMessage("/clients", "success", "Client deleted.");
+  redirectWithMessage("/clients", "success", "Cliente eliminado.");
 }
 
 export async function savePlan(formData: FormData) {
@@ -324,22 +289,15 @@ export async function savePlan(formData: FormData) {
   const clientId = formString(formData, "client_id");
   const content = formString(formData, "content");
   const settings = energySettingsPayload(formData);
-  const macroTotal = settings.proteinPct + settings.carbsPct + settings.fatPct;
+  const requestedContextKey = formString(formData, "apply_context_key");
+  const saveMode = formString(formData, "save_mode");
 
   if (!clientId) redirect("/clients");
-
-  if (Math.abs(macroTotal - 100) > 1) {
-    redirectWithMessage(
-      clientTabPath(clientId, "plan"),
-      "error",
-      "La suma de macronutrientes debe ser 100%.",
-    );
-  }
 
   const [clientMetricsResult, latestWeightResult] = await Promise.all([
     supabase
       .from("clients")
-      .select("weight_kg,updated_at")
+      .select("weight_kg,updated_at,sex")
       .eq("id", clientId)
       .maybeSingle(),
     supabase
@@ -367,25 +325,107 @@ export async function savePlan(formData: FormData) {
       : (clientWeight ??
         loggedWeight ??
         positiveFormNumber(formData, "reference_weight_kg"));
+  const clientSex =
+    clientMetricsResult.data?.sex ??
+    optionalClientSex(formData, "reference_sex");
+  const selectedContext = settings.contexts.find(
+    (context) => context.key === requestedContextKey,
+  );
+  const resolvedSettings: EnergySettings = {
+    ...settings,
+    activityFactor: activityFactorForSex(settings.activityLevel, clientSex),
+    activeContextKey: selectedContext?.key ?? settings.activeContextKey,
+  };
   const energy = calculateEnergyPlan({
-    settings,
+    settings: resolvedSettings,
     weightKg: currentWeightKg,
     heightCm: positiveFormNumber(formData, "reference_height_cm"),
     age: positiveFormNumber(formData, "reference_age"),
-    sex: optionalClientSex(formData, "reference_sex"),
+    sex: clientSex,
   });
+  const activeContext =
+    resolvedSettings.contexts.find(
+      (context) => context.key === resolvedSettings.activeContextKey,
+    ) ?? resolvedSettings.contexts[0];
+
+  if (!activeContext) {
+    redirectWithMessage(
+      clientTabPath(clientId, "plan"),
+      "error",
+      "No se ha podido determinar el contexto nutricional.",
+    );
+  }
+
+  const macroTotal =
+    activeContext.proteinPct + activeContext.carbsPct + activeContext.fatPct;
+  if (saveMode !== "manual" && Math.abs(macroTotal - 100) > 0.11) {
+    redirectWithMessage(
+      clientTabPath(clientId, "plan"),
+      "error",
+      `Los macronutrientes de ${activeContext.label} deben sumar 100%.`,
+    );
+  }
+
+  const referenceCalories = Math.round(
+    contextReference(activeContext.key, energy),
+  );
+  const automaticCalories = Math.round(
+    activeContext.calorieTarget && activeContext.calorieTarget > 0
+      ? activeContext.calorieTarget
+      : referenceCalories,
+  );
+  const automaticProtein = Math.round(
+    (automaticCalories * activeContext.proteinPct) / 100 / 4,
+  );
+  const automaticCarbs = Math.round(
+    (automaticCalories * activeContext.carbsPct) / 100 / 4,
+  );
+  const automaticFat = Math.round(
+    (automaticCalories * activeContext.fatPct) / 100 / 9,
+  );
+  const manualCalories = positiveFormNumber(formData, "manual_calories");
+  const manualProtein = nonNegativeFormNumber(formData, "manual_protein_g");
+  const manualCarbs = nonNegativeFormNumber(formData, "manual_carbs_g");
+  const manualFat = nonNegativeFormNumber(formData, "manual_fat_g");
+
+  if (
+    saveMode === "manual" &&
+    (!manualCalories ||
+      manualProtein === null ||
+      manualCarbs === null ||
+      manualFat === null)
+  ) {
+    redirectWithMessage(
+      clientTabPath(clientId, "plan"),
+      "error",
+      "Completa los cuatro valores del ajuste manual.",
+    );
+  }
+
+  const calculationDescription =
+    activeContext.key === "rest"
+      ? `Día de descanso: GET ${referenceCalories} kcal; objetivo ${automaticCalories} kcal.`
+      : `${activeContext.label}: GET ${referenceCalories} kcal; objetivo ${automaticCalories} kcal.`;
+  const savedSettings: EnergySettings = {
+    ...resolvedSettings,
+    calculationDescription,
+  };
 
   const { error } = await supabase.from("plans").upsert(
     {
       user_id: userId,
       client_id: clientId,
       content,
-      calories: energy.calories,
-      protein_g: energy.proteinG,
-      carbs_g: energy.carbsG,
-      fat_g: energy.fatG,
-      energy_settings: settings,
-      meal_distribution: mealDistributionPayload(formData),
+      calories:
+        saveMode === "manual"
+          ? Math.round(manualCalories ?? automaticCalories)
+          : automaticCalories,
+      protein_g:
+        saveMode === "manual" ? (manualProtein ?? 0) : automaticProtein,
+      carbs_g: saveMode === "manual" ? (manualCarbs ?? 0) : automaticCarbs,
+      fat_g: saveMode === "manual" ? (manualFat ?? 0) : automaticFat,
+      energy_settings: savedSettings,
+      meal_distribution: activeContext.meals,
     },
     { onConflict: "client_id" },
   );
@@ -402,7 +442,9 @@ export async function savePlan(formData: FormData) {
   redirectWithMessage(
     clientTabPath(clientId, "plan"),
     "success",
-    "Plan saved.",
+    saveMode === "manual"
+      ? "Ajustes manuales guardados."
+      : `${activeContext.label} aplicado como plan activo.`,
   );
 }
 
@@ -523,9 +565,7 @@ export async function deleteClientWeight(formData: FormData) {
   );
 }
 
-export async function addClientAnthropometry(formData: FormData) {
-  const { supabase, userId } = await getAuthedSupabase();
-  const clientId = formString(formData, "client_id");
+function anthropometryPayload(formData: FormData) {
   const measuredAt =
     optionalFormString(formData, "measured_at") ?? todayIsoDate();
   const heightCm = positiveFormNumber(formData, "height_cm");
@@ -535,25 +575,33 @@ export async function addClientAnthropometry(formData: FormData) {
   const girths = measurementGroup(formData, "girths", GIRTH_FIELDS);
   const diameters = measurementGroup(formData, "diameters", DIAMETER_FIELDS);
 
+  return {
+    measuredAt,
+    heightCm,
+    weightKg,
+    sex,
+    race: normalizeAnthropometryRace(optionalFormString(formData, "race")),
+    sittingHeightCm: positiveFormNumber(formData, "sitting_height_cm"),
+    armSpanCm: positiveFormNumber(formData, "arm_span_cm"),
+    skinfolds,
+    girths,
+    diameters,
+    notes: optionalFormString(formData, "notes"),
+  };
+}
+
+export async function addClientAnthropometry(formData: FormData) {
+  const { supabase, userId } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const payload = anthropometryPayload(formData);
+
   if (!clientId) redirect("/clients");
 
-  if (!heightCm || !weightKg) {
+  if (!payload.heightCm || !payload.weightKg || !payload.sex) {
     redirectWithMessage(
       clientTabPath(clientId, "antropometria"),
       "error",
-      "Completa peso y altura de la valoracion antropometrica.",
-    );
-  }
-
-  if (
-    !hasAllMeasurements(skinfolds, SKINFOLD_FIELDS) ||
-    !hasAllMeasurements(girths, GIRTH_FIELDS) ||
-    !hasAllMeasurements(diameters, DIAMETER_FIELDS)
-  ) {
-    redirectWithMessage(
-      clientTabPath(clientId, "antropometria"),
-      "error",
-      "Completa todas las medidas antropometricas.",
+      "Completa peso, altura y sexo de la valoración antropométrica.",
     );
   }
 
@@ -562,14 +610,22 @@ export async function addClientAnthropometry(formData: FormData) {
     .insert({
       user_id: userId,
       client_id: clientId,
-      measured_at: measuredAt,
-      height_cm: heightCm,
-      weight_kg: weightKg,
-      sex,
-      skinfolds,
-      girths,
-      diameters,
-      notes: optionalFormString(formData, "notes"),
+      measured_at: payload.measuredAt,
+      height_cm: payload.heightCm,
+      weight_kg: payload.weightKg,
+      sex: payload.sex,
+      race: payload.race,
+      sitting_height_cm: payload.sittingHeightCm,
+      arm_span_cm: payload.armSpanCm,
+      skinfolds: payload.skinfolds.values,
+      girths: payload.girths.values,
+      diameters: payload.diameters.values,
+      measurements3: {
+        skinfolds: payload.skinfolds.raw,
+        girths: payload.girths.raw,
+        diameters: payload.diameters.raw,
+      },
+      notes: payload.notes,
     });
 
   if (error) {
@@ -581,12 +637,15 @@ export async function addClientAnthropometry(formData: FormData) {
   }
 
   await Promise.all([
-    supabase.from("clients").update({ height_cm: heightCm }).eq("id", clientId),
+    supabase
+      .from("clients")
+      .update({ height_cm: payload.heightCm })
+      .eq("id", clientId),
     supabase.from("client_weight_logs").insert({
       user_id: userId,
       client_id: clientId,
-      measured_at: measuredAt,
-      weight_kg: weightKg,
+      measured_at: payload.measuredAt,
+      weight_kg: payload.weightKg,
     }),
   ]);
   await syncClientCurrentWeight(supabase, clientId);
@@ -596,7 +655,128 @@ export async function addClientAnthropometry(formData: FormData) {
   redirectWithMessage(
     clientTabPath(clientId, "antropometria"),
     "success",
-    "Antropometria guardada.",
+    "Valoración antropométrica guardada.",
+  );
+}
+
+export async function updateClientAnthropometry(formData: FormData) {
+  const { supabase } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const assessmentId = formString(formData, "assessment_id");
+  const payload = anthropometryPayload(formData);
+
+  if (!clientId || !assessmentId) redirect("/clients");
+  if (!payload.heightCm || !payload.weightKg || !payload.sex) {
+    redirectWithMessage(
+      clientTabPath(clientId, "antropometria"),
+      "error",
+      "Completa peso, altura y sexo de la valoración antropométrica.",
+    );
+  }
+
+  const { error } = await supabase
+    .from("client_anthropometry_assessments")
+    .update({
+      measured_at: payload.measuredAt,
+      height_cm: payload.heightCm,
+      weight_kg: payload.weightKg,
+      sex: payload.sex,
+      race: payload.race,
+      sitting_height_cm: payload.sittingHeightCm,
+      arm_span_cm: payload.armSpanCm,
+      skinfolds: payload.skinfolds.values,
+      girths: payload.girths.values,
+      diameters: payload.diameters.values,
+      measurements3: {
+        skinfolds: payload.skinfolds.raw,
+        girths: payload.girths.raw,
+        diameters: payload.diameters.raw,
+      },
+      notes: payload.notes,
+    })
+    .eq("id", assessmentId)
+    .eq("client_id", clientId);
+
+  if (error) {
+    redirectWithMessage(
+      clientTabPath(clientId, "antropometria"),
+      "error",
+      databaseSetupMessage(error.message),
+    );
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(
+    clientTabPath(clientId, "antropometria"),
+    "success",
+    "Valoración actualizada.",
+  );
+}
+
+export async function deleteClientAnthropometry(formData: FormData) {
+  const { supabase } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const assessmentId = formString(formData, "assessment_id");
+  if (!clientId || !assessmentId) redirect("/clients");
+
+  const { error } = await supabase
+    .from("client_anthropometry_assessments")
+    .delete()
+    .eq("id", assessmentId)
+    .eq("client_id", clientId);
+  if (error) {
+    redirectWithMessage(
+      clientTabPath(clientId, "antropometria"),
+      "error",
+      databaseSetupMessage(error.message),
+    );
+  }
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(
+    clientTabPath(clientId, "antropometria"),
+    "success",
+    "Valoración eliminada.",
+  );
+}
+
+export async function deleteClientAnthropometryBulk(formData: FormData) {
+  const { supabase } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const rawIds = formString(formData, "assessment_ids");
+  if (!clientId) redirect("/clients");
+  let ids: string[] = [];
+  try {
+    const parsed = JSON.parse(rawIds);
+    if (Array.isArray(parsed)) {
+      ids = parsed.filter((value): value is string => typeof value === "string");
+    }
+  } catch {
+    ids = [];
+  }
+  if (!ids.length) {
+    redirectWithMessage(
+      clientTabPath(clientId, "antropometria"),
+      "error",
+      "Selecciona al menos una valoración.",
+    );
+  }
+  const { error } = await supabase
+    .from("client_anthropometry_assessments")
+    .delete()
+    .eq("client_id", clientId)
+    .in("id", ids);
+  if (error) {
+    redirectWithMessage(
+      clientTabPath(clientId, "antropometria"),
+      "error",
+      databaseSetupMessage(error.message),
+    );
+  }
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(
+    clientTabPath(clientId, "antropometria"),
+    "success",
+    `${ids.length} valoraciones eliminadas.`,
   );
 }
 

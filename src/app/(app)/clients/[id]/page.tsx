@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import {
   Activity,
   ArrowLeft,
-  Calendar,
   Clock,
   Download,
   Dumbbell,
@@ -35,6 +34,7 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { Notice } from "@/components/notice";
 import { NutritionPlanForm } from "@/components/nutrition-plan-form";
+import { AnthropometrySection } from "@/components/anthropometry-section";
 import { PrintButton } from "@/components/print-button";
 import { SubmitButton } from "@/components/submit-button";
 import { createClient } from "@/lib/supabase/server";
@@ -91,8 +91,6 @@ const mutedTileClass = "rounded-lg border border-slate-200 bg-slate-50 p-4";
 const sexLabels: Record<ClientSex, string> = {
   female: "Mujer",
   male: "Hombre",
-  non_binary: "No binario",
-  prefer_not_to_say: "Prefiere no decirlo",
 };
 
 const activityLabels = {
@@ -141,6 +139,7 @@ const months = [
 type ClientTab = (typeof clientTabs)[number]["key"];
 
 function resolveClientTab(value: string | undefined): ClientTab {
+  if (value === "informe" || value === "danger") return "antropometria";
   return clientTabs.some((tab) => tab.key === value)
     ? (value as ClientTab)
     : "ficha";
@@ -1013,17 +1012,17 @@ export default async function ClientDetailPage({
   const latestAnthro = anthropometryRows[0] ?? null;
   const latestSkinfolds = latestAnthro
     ? measurementMapFromJson(latestAnthro.skinfolds, SKINFOLD_FIELDS)
-    : null;
+    : ({} as MeasurementMap);
   const latestGirths = latestAnthro
     ? measurementMapFromJson(latestAnthro.girths, GIRTH_FIELDS)
-    : null;
+    : ({} as MeasurementMap);
   const latestDiameters = latestAnthro
     ? measurementMapFromJson(latestAnthro.diameters, DIAMETER_FIELDS)
-    : null;
+    : ({} as MeasurementMap);
   const calculationWeight = latestWeight ?? latestAnthro?.weight_kg ?? null;
   const calculationHeight = latestAnthro?.height_cm ?? client.height_cm;
   const bmi = clientBmi(calculationWeight, calculationHeight);
-  const latestCalc =
+  const latestCalc = (
     latestAnthro && latestSkinfolds && latestGirths && latestDiameters
       ? calculateAnthropometry({
           weightKg: calculationWeight,
@@ -1033,21 +1032,21 @@ export default async function ClientDetailPage({
           skinfolds: latestSkinfolds,
           girths: latestGirths,
           diameters: latestDiameters,
-        })
-      : null;
+        })!
+      : null) as AnthropometryResult;
   const selectedAnthro =
     anthropometryRows.find((row) => row.id === query?.anthropometry) ??
     latestAnthro;
   const selectedSkinfolds = selectedAnthro
     ? measurementMapFromJson(selectedAnthro.skinfolds, SKINFOLD_FIELDS)
-    : null;
+    : ({} as MeasurementMap);
   const selectedGirths = selectedAnthro
     ? measurementMapFromJson(selectedAnthro.girths, GIRTH_FIELDS)
-    : null;
+    : ({} as MeasurementMap);
   const selectedDiameters = selectedAnthro
     ? measurementMapFromJson(selectedAnthro.diameters, DIAMETER_FIELDS)
-    : null;
-  const selectedCalc =
+    : ({} as MeasurementMap);
+  const selectedCalc = (
     selectedAnthro && selectedSkinfolds && selectedGirths && selectedDiameters
       ? calculateAnthropometry({
           weightKg: calculationWeight,
@@ -1057,8 +1056,8 @@ export default async function ClientDetailPage({
           skinfolds: selectedSkinfolds,
           girths: selectedGirths,
           diameters: selectedDiameters,
-        })
-      : null;
+        })!
+      : null) as AnthropometryResult;
   const orderedAnthropometryRows = [...anthropometryRows].reverse();
   const somatotypePoints = orderedAnthropometryRows
     .map((row) => {
@@ -1116,7 +1115,7 @@ export default async function ClientDetailPage({
     age,
     sex: client.sex,
   });
-  const planCalories = energy.calories;
+  const planCalories = plan?.calories ?? energy.calories;
   const recentNotes = notes.slice(0, 5);
   const personalInfo: Array<{
     label: string;
@@ -1201,7 +1200,7 @@ export default async function ClientDetailPage({
         aria-label="Apartados del cliente"
         role="tablist"
       >
-        {clientTabs.map((tab) => {
+        {clientTabs.filter((tab) => tab.key !== "informe" && tab.key !== "danger").map((tab) => {
           const selected = activeTab === tab.key;
 
           return (
@@ -1628,6 +1627,12 @@ export default async function ClientDetailPage({
               content={plan?.content ?? ""}
               settings={planSettings}
               meals={mealDistribution}
+              activePlan={{
+                calories: plan?.calories ?? null,
+                proteinG: plan?.protein_g ?? null,
+                carbsG: plan?.carbs_g ?? null,
+                fatG: plan?.fat_g ?? null,
+              }}
               reference={{
                 weightKg: calculationWeight,
                 heightCm: calculationHeight,
@@ -1639,6 +1644,16 @@ export default async function ClientDetailPage({
         ) : null}
 
         {activeTab === "antropometria" ? (
+          <AnthropometrySection
+            client={client}
+            assessments={anthropometryRows}
+            supplementNotes={supplementNotes}
+            today={today}
+            defaultWeight={calculationWeight}
+          />
+        ) : null}
+
+        {false ? (
           <section id="antropometria" className={cardClass}>
             <SectionTitle
               title="Antropometria"
@@ -1688,13 +1703,9 @@ export default async function ClientDetailPage({
                           defaultValue={client.sex ?? ""}
                           className={inputClass}
                         >
-                          <option value="">No indicado</option>
+                          <option value="" disabled>Selecciona</option>
                           <option value="male">Hombre</option>
                           <option value="female">Mujer</option>
-                          <option value="non_binary">No binario</option>
-                          <option value="prefer_not_to_say">
-                            Prefiere no decirlo
-                          </option>
                         </select>
                       </label>
                     </div>
@@ -2115,7 +2126,7 @@ export default async function ClientDetailPage({
           </section>
         ) : null}
 
-        {activeTab === "informe" ? (
+        {false ? (
           <section
             id="informe"
             className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm print:border-0 print:p-0 print:shadow-none"
@@ -2150,7 +2161,7 @@ export default async function ClientDetailPage({
                 {[
                   ["Paciente", client.name],
                   ["Edad", age !== null ? `${age} años` : "--"],
-                  ["Sexo", client.sex ? sexLabels[client.sex] : "--"],
+                  ["Sexo", client.sex === "female" ? "Mujer" : client.sex === "male" ? "Hombre" : "--"],
 
                   [
                     "Peso",

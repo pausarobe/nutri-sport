@@ -242,9 +242,13 @@ export type Database = {
           height_cm: number;
           weight_kg: number;
           sex: ClientSex | null;
+          race: AnthropometryRace;
+          sitting_height_cm: number | null;
+          arm_span_cm: number | null;
           skinfolds: Json;
           girths: Json;
           diameters: Json;
+          measurements3: Json;
           notes: string | null;
           created_at: string;
         };
@@ -256,9 +260,13 @@ export type Database = {
           height_cm: number;
           weight_kg: number;
           sex?: ClientSex | null;
+          race?: AnthropometryRace;
+          sitting_height_cm?: number | null;
+          arm_span_cm?: number | null;
           skinfolds?: Json;
           girths?: Json;
           diameters?: Json;
+          measurements3?: Json;
           notes?: string | null;
           created_at?: string;
         };
@@ -270,9 +278,13 @@ export type Database = {
           height_cm?: number;
           weight_kg?: number;
           sex?: ClientSex | null;
+          race?: AnthropometryRace;
+          sitting_height_cm?: number | null;
+          arm_span_cm?: number | null;
           skinfolds?: Json;
           girths?: Json;
           diameters?: Json;
+          measurements3?: Json;
           notes?: string | null;
           created_at?: string;
         };
@@ -341,11 +353,9 @@ export type Database = {
   };
 };
 
-export type ClientSex =
-  | "female"
-  | "male"
-  | "non_binary"
-  | "prefer_not_to_say";
+export type ClientSex = "female" | "male";
+
+export type AnthropometryRace = "caucasian" | "black" | "asian";
 
 export type ActivityLevel =
   | "sedentary"

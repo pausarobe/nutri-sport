@@ -51,14 +51,41 @@ textarea {
   }
 
   #client-report,
+  #anthropometry-report,
   #client-report > div,
+  #anthropometry-report > div,
   #client-report section {
     break-inside: avoid;
   }
 
+  #anthropometry-report section {
+    break-inside: avoid;
+  }
+
   #client-report,
+  #anthropometry-report,
   #client-report * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  #anthropometry-report * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body:has(#anthropometry-report) * {
+    visibility: hidden;
+  }
+
+  body:has(#anthropometry-report) #anthropometry-report,
+  body:has(#anthropometry-report) #anthropometry-report * {
+    visibility: visible;
+  }
+
+  body:has(#anthropometry-report) #anthropometry-report {
+    position: absolute;
+    inset: 0;
+    width: 100%;
   }
 }

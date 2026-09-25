@@ -16,6 +16,8 @@ type SubmitButtonProps = {
   pendingLabel?: string;
   icon?: keyof typeof icons;
   ariaLabel?: string;
+  name?: string;
+  value?: string;
 };
 
 export function SubmitButton({
@@ -24,6 +26,8 @@ export function SubmitButton({
   pendingLabel,
   icon,
   ariaLabel,
+  name,
+  value,
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();
   const Icon = icon ? icons[icon] : null;
@@ -36,6 +40,8 @@ export function SubmitButton({
       disabled={pending}
       aria-label={ariaLabel}
       aria-busy={pending}
+      name={name}
+      value={value}
     >
       {pending ? (
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

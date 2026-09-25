@@ -15,15 +15,15 @@ export default async function NewClientPage({ searchParams }: NewClientPageProps
   return (
     <>
       <PageHeader
-        title="New client"
-        description="Start with the essentials. You can add the plan and history after saving."
+        title="Nuevo cliente"
+        description="Empieza por los datos esenciales. Podrás añadir el plan y el historial después de guardar."
         action={
           <Link
             href="/clients"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back
+            Volver
           </Link>
         }
       />
@@ -32,7 +32,7 @@ export default async function NewClientPage({ searchParams }: NewClientPageProps
         <Notice error={params?.error} />
       </div>
 
-      <ClientForm action={createNutritionClient} submitLabel="Create client" />
+      <ClientForm action={createNutritionClient} submitLabel="Crear cliente" />
     </>
   );
 }

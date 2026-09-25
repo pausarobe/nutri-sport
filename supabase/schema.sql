@@ -18,7 +18,7 @@ create table if not exists public.clients (
   phone text,
   sex text check (
     sex is null
-    or sex in ('female', 'male', 'non_binary', 'prefer_not_to_say')
+    or sex in ('female', 'male')
   ),
   birth_date date,
   height_cm numeric(5,2) check (height_cm is null or height_cm > 0),
@@ -92,11 +92,15 @@ create table if not exists public.client_anthropometry_assessments (
   weight_kg numeric(5,2) not null check (weight_kg > 0),
   sex text check (
     sex is null
-    or sex in ('female', 'male', 'non_binary', 'prefer_not_to_say')
+    or sex in ('female', 'male')
   ),
+  race text not null default 'caucasian' check (race in ('caucasian', 'black', 'asian')),
+  sitting_height_cm numeric(5,2) check (sitting_height_cm is null or sitting_height_cm > 0),
+  arm_span_cm numeric(5,2) check (arm_span_cm is null or arm_span_cm > 0),
   skinfolds jsonb not null default '{}'::jsonb,
   girths jsonb not null default '{}'::jsonb,
   diameters jsonb not null default '{}'::jsonb,
+  measurements3 jsonb not null default '{}'::jsonb,
   notes text,
   created_at timestamptz not null default now()
 );

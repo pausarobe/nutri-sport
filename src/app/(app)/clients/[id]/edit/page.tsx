@@ -30,15 +30,15 @@ export default async function EditClientPage({
   return (
     <>
       <PageHeader
-        title={`Edit ${client.name}`}
-        description="Update the profile information used across the client workspace."
+        title={`Editar ${client.name}`}
+        description="Actualiza los datos que se utilizan en la ficha y en los cálculos del cliente."
         action={
           <Link
             href={`/clients/${client.id}`}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back
+            Volver
           </Link>
         }
       />
@@ -50,7 +50,7 @@ export default async function EditClientPage({
       <ClientForm
         client={client}
         action={updateNutritionClient}
-        submitLabel="Save changes"
+        submitLabel="Guardar cambios"
       />
     </>
   );
