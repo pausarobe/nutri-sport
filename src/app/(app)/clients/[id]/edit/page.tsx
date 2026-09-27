@@ -35,7 +35,7 @@ export default async function EditClientPage({
         action={
           <Link
             href={`/clients/${client.id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white"
+            className="clinical-button-secondary"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Volver

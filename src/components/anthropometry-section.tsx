@@ -15,7 +15,6 @@ import {
   addClientAnthropometry,
   deleteClientAnthropometry,
   deleteClientAnthropometryBulk,
-  deleteNutritionClient,
   updateClientAnthropometry,
 } from "@/app/(app)/clients/actions";
 import { SubmitButton } from "@/components/submit-button";
@@ -53,12 +52,11 @@ type MeasurementGroup = "skinfolds" | "girths" | "diameters";
 type ConfirmAction =
   | { type: "assessment"; id: string }
   | { type: "bulk" }
-  | { type: "client" }
   | null;
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
-const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-400";
+  "clinical-input";
+const labelClass = "clinical-label";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("es-ES", {
@@ -122,16 +120,16 @@ function Modal({
   wide?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 print:static print:block print:bg-white print:p-0">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#131b2e]/45 p-4 backdrop-blur-sm print:static print:block print:bg-white print:p-0">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`my-4 w-full rounded-xl bg-white shadow-2xl print:my-0 print:max-w-none print:rounded-none print:shadow-none ${wide ? "max-w-6xl" : "max-w-3xl"}`}
+        className={`my-4 w-full overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_20px_35px_-5px_rgba(15,23,42,0.16),0_8px_16px_-6px_rgba(15,23,42,0.08)] print:my-0 print:max-w-none print:rounded-none print:shadow-none ${wide ? "max-w-6xl" : "max-w-3xl"}`}
       >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 print:hidden">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-xl print:hidden">
           <div>
-            <h2 className="font-semibold text-slate-950">{title}</h2>
+            <h2 className="text-lg font-bold tracking-[-0.02em] text-[#003626]">{title}</h2>
             {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
           </div>
           <button
@@ -164,7 +162,7 @@ function MeasurementInputs({
     ? measurementMapFromJson(assessment[prefix], fields)
     : ({} as MeasurementMap);
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-xl border border-slate-200 bg-[#f7f8ff] p-4">
       <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       <div className="mt-3 grid grid-cols-[minmax(80px,1fr)_repeat(3,minmax(42px,70px))_48px_46px] gap-1.5 text-[0.6rem] font-semibold uppercase tracking-wide text-slate-400">
         <span>Medida</span><span className="text-center">1.ª</span><span className="text-center">2.ª</span><span className="text-center">3.ª</span><span className="text-center">Final</span><span className="text-center">Estado</span>
@@ -344,9 +342,9 @@ function AssessmentForm({
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className={labelClass}>{label}</div>
-      <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
+      <div className="mt-2 text-xl font-bold tracking-[-0.02em] text-[#003626]">{value}</div>
     </div>
   );
 }
@@ -379,7 +377,7 @@ function MeasurementBars({
   scale: number;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 print:p-1.5">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 print:p-1.5">
       <h4 className="text-sm font-semibold text-slate-900 print:text-[10px]">{title}</h4>
       <div className="mt-3 space-y-2 print:mt-1 print:space-y-1">
         {fields.map((field) => {
@@ -409,9 +407,9 @@ function MeasurementBars({
 
 function CompositionBar({ result }: { result: NonNullable<ReturnType<typeof calculateAnthropometry>> }) {
   const segments = [
-    { label: "Grasa", value: Number(result.pctGrass), color: "#c45a00" },
-    { label: "Muscular", value: Number(result.pctMusc), color: "#2563eb" },
-    { label: "Ósea", value: Number(result.pctOssi), color: "#2d7a3a" },
+    { label: "Grasa", value: Number(result.pctGrass), color: "#f43f5e" },
+    { label: "Muscular", value: Number(result.pctMusc), color: "#0284c7" },
+    { label: "Ósea", value: Number(result.pctOssi), color: "#0b4f3a" },
     { label: "Residual", value: Number(result.pctResid), color: "#94a3b8" },
   ];
   return (
@@ -534,9 +532,9 @@ function Somatogram({
         const py = toY(point.y);
         return (
           <g key={point.id}>
-            {selected ? <circle cx={px} cy={py} r="10" fill="#ef4444" opacity="0.14" /> : null}
-            <circle cx={px} cy={py} r={selected ? 5.5 : 4} fill={selected ? "#ef4444" : "#2563eb"} />
-            <text x={px + 7} y={py + 3} fill={selected ? "#ef4444" : "#2563eb"} fontSize="7.5" fontWeight={selected ? "bold" : "400"}>
+            {selected ? <circle cx={px} cy={py} r="10" fill="#10b981" opacity="0.16" /> : null}
+            <circle cx={px} cy={py} r={selected ? 5.5 : 4} fill={selected ? "#0b4f3a" : "#0284c7"} />
+            <text x={px + 7} y={py + 3} fill={selected ? "#0b4f3a" : "#0284c7"} fontSize="7.5" fontWeight={selected ? "bold" : "400"}>
               {point.label ?? ""}
             </text>
           </g>
@@ -551,11 +549,13 @@ function Report({
   assessment,
   assessments,
   supplements,
+  embedded = false,
 }: {
   client: Client;
   assessment: ClientAnthropometryAssessment;
   assessments: ClientAnthropometryAssessment[];
   supplements: ClientNote[];
+  embedded?: boolean;
 }) {
   const [formula, setFormula] = useState<BodyFatFormula>("yuhasz");
   const maps = assessmentMaps(assessment);
@@ -613,18 +613,20 @@ function Report({
       ]
     : [];
   return (
-    <div id="anthropometry-report" className="space-y-5 bg-white print:text-[9px]">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b-4 border-emerald-700 pb-4 print:pb-2">
-        <div>
-          <h2 className="text-2xl font-semibold text-emerald-800 print:text-lg">Informe antropométrico</h2>
-          <p className="mt-1 text-xs text-slate-500">Valoración: {formatDate(assessment.measured_at)}</p>
+    <div id={embedded ? undefined : "anthropometry-report"} className={`space-y-5 ${embedded ? "bg-transparent" : "bg-white"} print:text-[9px]`}>
+      {!embedded ? (
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b-4 border-[#0b4f3a] pb-4 print:pb-2">
+          <div>
+            <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#003626] print:text-lg">Informe antropométrico</h2>
+            <p className="mt-1 text-xs text-slate-500">Valoración: {formatDate(assessment.measured_at)}</p>
+          </div>
+          <button type="button" onClick={() => window.print()} className="clinical-button-secondary print:hidden">
+            <Printer className="h-4 w-4" /> Descargar / imprimir PDF
+          </button>
         </div>
-        <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 print:hidden">
-          <Printer className="h-4 w-4" /> Descargar / imprimir PDF
-        </button>
-      </div>
+      ) : null}
 
-      <div className="grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-3 lg:grid-cols-7 print:grid-cols-7">
+      <div className="clinical-card grid gap-3 p-4 sm:grid-cols-3 lg:grid-cols-7 print:grid-cols-7">
         {[
           ["Paciente", client.name],
           ["Edad", age === null ? "--" : `${age} años`],
@@ -638,7 +640,7 @@ function Report({
         ))}
       </div>
 
-      <section className="print:hidden">
+      {!embedded ? <section className="print:hidden">
         <h3 className="text-sm font-semibold text-slate-900">Fórmula de porcentaje graso</h3>
         <div className="mt-2 flex flex-wrap gap-2">
           {BODY_FAT_FORMULAS.map((option) => (
@@ -652,11 +654,11 @@ function Report({
             </button>
           ))}
         </div>
-      </section>
+      </section> : null}
 
       {supplements.length ? (
-        <section className="rounded-lg bg-emerald-50 p-3">
-          <h3 className="text-sm font-semibold text-slate-900">Suplementos</h3>
+        <section className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+          <h3 className="text-sm font-bold text-[#003626]">Suplementos</h3>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {supplements.map((note) => <div key={note.id} className="rounded-md bg-white px-3 py-2 text-sm text-slate-700">{note.content}</div>)}
           </div>
@@ -665,8 +667,8 @@ function Report({
 
       {result ? (
         <>
-          <section>
-            <h3 className="border-l-4 border-emerald-700 pl-3 text-sm font-semibold text-slate-900">Composición corporal</h3>
+          <section className="clinical-card p-5">
+            <h3 className="text-base font-bold tracking-[-0.01em] text-[#003626]">Composición corporal</h3>
             <p className="mt-2 text-xs text-slate-500">{result.formulaLabel} · {result.conversionLabel}</p>
             {!result.withersValid ? <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-800">La edad queda fuera del rango de validación publicado para Withers.</p> : null}
             <div className="mt-3">
@@ -679,15 +681,15 @@ function Report({
                 ["Ósea", result.pctOssi, result.pOssi],
                 ["Residual", result.pctResid, result.pResid],
               ].map(([label, pct, kg]) => (
-                <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
-                  <div className={labelClass}>{label}</div><div className="mt-1 text-xl font-semibold text-emerald-800">{pct}%</div><div className="text-xs text-slate-500">{kg} kg</div>
+                <div key={label} className="rounded-xl border border-slate-200 bg-[#f7f8ff] p-4 text-center">
+                  <div className={labelClass}>{label}</div><div className="mt-2 text-2xl font-extrabold tracking-[-0.03em] text-[#003626]">{pct}%</div><div className="mt-1 text-xs text-slate-500">{kg} kg</div>
                 </div>
               ))}
             </div>
           </section>
 
-          <section>
-            <h3 className="border-l-4 border-blue-700 pl-3 text-sm font-semibold text-slate-900">Somatotipo Heath-Carter</h3>
+          <section className="clinical-card p-5">
+            <h3 className="text-base font-bold tracking-[-0.01em] text-[#003626]">Somatotipo Heath-Carter</h3>
             <div className="mt-3 grid items-center gap-4 lg:grid-cols-[300px_minmax(0,1fr)] print:grid-cols-2">
               <Somatogram
                 points={comparisonPoints.length ? comparisonPoints : [{ id: assessment.id, x: Number(result.somatX), y: Number(result.somatY), label: formatDate(assessment.measured_at).slice(0, 5) }]}
@@ -704,8 +706,8 @@ function Report({
             </div>
           </section>
 
-          <section>
-            <h3 className="border-l-4 border-violet-700 pl-3 text-sm font-semibold text-slate-900">Medidas detalladas y correcciones</h3>
+          <section className="clinical-card p-5">
+            <h3 className="text-base font-bold tracking-[-0.01em] text-[#003626]">Medidas detalladas y correcciones</h3>
             <div className="mt-3 grid gap-3 lg:grid-cols-3 print:grid-cols-3">
               <MeasurementBars title="Pliegues" fields={SKINFOLD_FIELDS} values={maps.skinfolds} scale={40} />
               <MeasurementBars title="Perímetros" fields={GIRTH_FIELDS} values={maps.girths} scale={110} />
@@ -720,8 +722,8 @@ function Report({
           </section>
 
           {result.cormic && result.manouvrier && result.relArmSpan ? (
-            <section>
-              <h3 className="border-l-4 border-amber-600 pl-3 text-sm font-semibold text-slate-900">Proporcionalidad ósea</h3>
+            <section className="clinical-card p-5">
+              <h3 className="text-base font-bold tracking-[-0.01em] text-[#003626]">Proporcionalidad ósea</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
                 <Metric label="Índice córmico" value={`${result.cormic} · ${result.cormicCat}`} />
                 <Metric label="Índice de Manouvrier" value={`${result.manouvrier} · ${result.manouvrierCat}`} />
@@ -730,8 +732,8 @@ function Report({
             </section>
           ) : null}
 
-          <section>
-            <h3 className="border-l-4 border-slate-500 pl-3 text-sm font-semibold text-slate-900">Valores Z Phantom</h3>
+          <section className="clinical-card p-5">
+            <h3 className="text-base font-bold tracking-[-0.01em] text-[#003626]">Valores Z Phantom</h3>
             <div className="mt-3 grid gap-x-6 lg:grid-cols-2 print:grid-cols-2 print:gap-x-3">
               {zRows.map((row) => (
                 <ZScoreRow
@@ -787,20 +789,21 @@ export function AnthropometrySection({
 
   return (
     <section id="antropometria" className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="p-5">
+      <div className="clinical-card overflow-hidden">
+        <div className="p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="font-semibold text-slate-950">Historial de mediciones</h2>
+              <span className="clinical-label text-emerald-700">Antropometría ISAK</span>
+              <h2 className="mt-1 text-lg font-bold tracking-[-0.02em] text-[#003626]">Resumen antropométrico</h2>
               <p className="mt-1 text-sm text-slate-500">
                 {latest ? `Última valoración: ${formatDate(latest.measured_at)}` : "Sin valoraciones"} · {rows.length} {rows.length === 1 ? "medición" : "mediciones"}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setFormId("new")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                <Plus className="h-4 w-4" /> Nueva valoración
+              <button type="button" onClick={() => setFormId("new")} className="clinical-button-primary">
+                <Plus className="h-4 w-4" /> Nueva medición
               </button>
-              <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <button type="button" onClick={() => setOpen((value) => !value)} className="clinical-button-secondary">
                 Mediciones ({rows.length}) {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
             </div>
@@ -815,20 +818,17 @@ export function AnthropometrySection({
               <Metric label="Suma 8 pliegues" value={`${latestSums.sum8.toFixed(1)} mm`} />
             </div>
           ) : (
-            <p className="mt-5 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Añade la primera valoración antropométrica.</p>
+            <p className="mt-5 rounded-xl bg-[#f7f8ff] p-4 text-sm text-slate-500">Añade la primera valoración antropométrica.</p>
           )}
 
-          <div className="mt-4 flex justify-end">
-            <button type="button" onClick={() => setConfirm({ type: "client" })} className="text-xs font-semibold text-red-500 hover:text-red-700">Eliminar paciente</button>
-          </div>
         </div>
 
         {open ? (
-          <div className="border-t border-slate-200 p-5">
+          <div className="border-t border-slate-100 p-5 sm:p-6">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
                 {rows.length >= 2 ? (
-                  <button type="button" onClick={() => setComparisonOpen(true)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Comparación</button>
+                  <button type="button" onClick={() => setComparisonOpen(true)} className="clinical-button-secondary px-3 py-2 text-xs">Comparación</button>
                 ) : null}
                 {selected.length ? (
                   <button type="button" onClick={() => setConfirm({ type: "bulk" })} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Eliminar seleccionadas ({selected.length})</button>
@@ -837,7 +837,7 @@ export function AnthropometrySection({
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
+                <thead className="bg-[#f8faf9] text-left text-[11px] uppercase tracking-[0.06em] text-slate-500">
                   <tr>
                     <th className="px-3 py-3"><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? [] : rows.map((row) => row.id))} aria-label="Seleccionar todas" /></th>
                     <th className="px-3 py-3">Fecha</th>
@@ -853,7 +853,7 @@ export function AnthropometrySection({
                     const restricted = isRestrictedProfile({ heightCm: row.height_cm, weightKg: row.weight_kg, ...maps });
                     const sums = skinfoldSums(maps.skinfolds);
                     return (
-                      <tr key={row.id}>
+                      <tr key={row.id} className="transition hover:bg-[#f9fbf9]">
                         <td className="px-3 py-3"><input type="checkbox" checked={selected.includes(row.id)} onChange={() => setSelected((current) => current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id])} aria-label={`Seleccionar ${formatDate(row.measured_at)}`} /></td>
                         <td className="px-3 py-3 font-medium text-slate-800">
                           {formatDate(row.measured_at)}
@@ -878,6 +878,21 @@ export function AnthropometrySection({
           </div>
         ) : null}
       </div>
+
+      {latest ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+            <div>
+              <h2 className="text-lg font-bold tracking-[-0.02em] text-[#003626]">Último análisis clínico</h2>
+              <p className="mt-1 text-sm text-slate-500">Resultados calculados con la valoración del {formatDate(latest.measured_at)}.</p>
+            </div>
+            <button type="button" onClick={() => setReportId(latest.id)} className="clinical-button-secondary">
+              <FileText className="h-4 w-4" /> Generar informe
+            </button>
+          </div>
+          <Report client={client} assessment={latest} assessments={rows} supplements={supplementNotes} embedded />
+        </div>
+      ) : null}
 
       {formId ? (
         <Modal title={formAssessment ? "Editar valoración antropométrica" : "Nueva valoración antropométrica"} description="Registra una primera y segunda lectura; la tercera es opcional." onClose={() => setFormId(null)} wide>
@@ -911,13 +926,13 @@ export function AnthropometrySection({
 
       {confirm ? (
         <Modal
-          title={confirm.type === "client" ? "Eliminar paciente" : "Eliminar valoración"}
-          description={confirm.type === "client" ? "Se eliminarán también todos sus planes, mediciones, citas, notas y archivos." : confirm.type === "bulk" ? `Se eliminarán ${selected.length} valoraciones.` : "Esta acción no se puede deshacer."}
+          title={confirm.type === "bulk" ? "Eliminar valoraciones" : "Eliminar valoración"}
+          description={confirm.type === "bulk" ? `Se eliminarán ${selected.length} valoraciones.` : "Esta acción no se puede deshacer."}
           onClose={() => setConfirm(null)}
         >
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setConfirm(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Cancelar</button>
-            <form action={confirm.type === "client" ? deleteNutritionClient : confirm.type === "bulk" ? deleteClientAnthropometryBulk : deleteClientAnthropometry}>
+            <form action={confirm.type === "bulk" ? deleteClientAnthropometryBulk : deleteClientAnthropometry}>
               <input type="hidden" name="client_id" value={client.id} />
               {confirm.type === "assessment" ? <input type="hidden" name="assessment_id" value={confirm.id} /> : null}
               {confirm.type === "bulk" ? <input type="hidden" name="assessment_ids" value={JSON.stringify(selected)} /> : null}

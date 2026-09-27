@@ -40,9 +40,9 @@ type NutritionPlanFormProps = {
 };
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
-const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-400";
-const panelClass = "rounded-lg border border-slate-200 bg-slate-50 p-4";
+  "clinical-input";
+const labelClass = "clinical-label";
+const panelClass = "rounded-2xl border border-slate-200 bg-[#f7f8ff] p-4 sm:p-5";
 
 const thermalOptions = [
   ["0.08", "8% · Rica en grasas"],

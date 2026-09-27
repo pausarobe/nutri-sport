@@ -1,7 +1,7 @@
+import { LockKeyhole, Mail } from "lucide-react";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { signIn } from "./actions";
-import Image from "next/image";
 
 type LoginPageProps = {
   searchParams?: Promise<{
@@ -15,69 +15,93 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   return (
-    <main className="flex min-h-screen items-center bg-emerald-700 justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-10 flex flex-col items-center text-center">
-          <div className="flex items-center justify-center">
-            <Image
-              src="/logo.svg"
-              alt="NutriSport Pro"
-              width={200}
-              height={200}
-            />
-          </div>
-          <div>
-            <h1 className="text-4xl font-black mb-2 text-emerald-200">
-              NutriSport <span className="text-emerald-900">Pro</span>
-            </h1>
-            <p className="text-sm text-white">Personal nutrition workspace</p>
-          </div>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f8faf9] px-4 py-10">
+      <div
+        className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-emerald-200/35 blur-3xl"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -bottom-36 -right-28 h-96 w-96 rounded-full bg-[#dae2fd]/50 blur-3xl"
+        aria-hidden="true"
+      />
+
+      <div className="relative w-full max-w-md">
+        <div className="mb-7 flex flex-col items-center text-center">
+          <h1 className="mt-4 text-[32px] font-extrabold tracking-[-0.035em] text-[#003626]">
+            NutriSport Pro
+          </h1>
+          <p className="mt-1 text-sm font-bold uppercase tracking-[0.08em] text-emerald-700">
+            Client nutrition
+          </p>
         </div>
 
-        <div className="space-y-4 p-6">
-          <Notice error={params?.error} message={params?.message} />
+        <section className="clinical-card p-6 sm:p-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold tracking-[-0.02em] text-slate-950">
+              Acceso profesional
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Inicia sesión para acceder al portal clínico.
+            </p>
+          </div>
+
+          <div className="mb-4">
+            <Notice error={params?.error} message={params?.message} />
+          </div>
 
           <form action={signIn} className="space-y-4">
             <input type="hidden" name="next" value={params?.next ?? ""} />
 
             <label className="block space-y-1.5">
-              <span className="text-sm font-medium text-white">Email</span>
-              <input
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                className="w-full rounded-lg border border-white bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
-                placeholder="you@example.com"
-              />
+              <span className="clinical-label">Email</span>
+              <span className="relative block">
+                <Mail
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  className="clinical-input pl-10"
+                  placeholder="tu@email.com"
+                />
+              </span>
             </label>
 
             <label className="block space-y-1.5">
-              <span className="text-sm font-medium text-white">Password</span>
-              <input
-                name="password"
-                type="password"
-                required
-                minLength={6}
-                autoComplete="current-password"
-                className="w-full rounded-lg border border-white bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
-                placeholder="******"
-              />
+              <span className="clinical-label">Contraseña</span>
+              <span className="relative block">
+                <LockKeyhole
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  minLength={6}
+                  autoComplete="current-password"
+                  className="clinical-input pl-10"
+                  placeholder="••••••••"
+                />
+              </span>
             </label>
 
-            <div className="space-y-3">
-              <SubmitButton
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                pendingLabel="Signing in..."
-              >
-                Sign in
-              </SubmitButton>
-              <p className="text-center text-xs text-white">
-                Private access. Users are created by the app owner.
-              </p>
-            </div>
+            <SubmitButton
+              className="clinical-button-primary mt-2 w-full"
+              pendingLabel="Iniciando sesión..."
+            >
+              Iniciar sesión
+            </SubmitButton>
+
+            <p className="text-center text-xs leading-5 text-slate-400">
+              Acceso privado. Las cuentas las gestiona el administrador de la
+              aplicación.
+            </p>
           </form>
-        </div>
+        </section>
       </div>
     </main>
   );

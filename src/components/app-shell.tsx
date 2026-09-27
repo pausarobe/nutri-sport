@@ -1,76 +1,126 @@
 import { signOut } from "@/app/(auth)/login/actions";
+import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { NavLink } from "@/components/nav-link";
 import { SubmitButton } from "@/components/submit-button";
+import { Bell, Plus } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 type AppShellProps = {
   children: React.ReactNode;
   userEmail?: string;
 };
 
+function accountInitials(email?: string) {
+  const account = email?.split("@")[0] ?? "NS";
+  const chunks = account.split(/[._-]+/).filter(Boolean);
+  return (
+    chunks.length > 1
+      ? `${chunks[0][0] ?? ""}${chunks[1][0] ?? ""}`
+      : account.slice(0, 2)
+  ).toUpperCase();
+}
+
 export function AppShell({ children, userEmail }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex print:block print:bg-white">
-      <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-64 lg:flex-col lg:border-b-0 lg:border-r print:static print:block print:h-auto print:w-auto print:border-0">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-5 print:border-0 print:px-0 print:py-0">
-          <div className="flex min-w-0 items-center gap-3 lg:flex-col lg:items-start lg:gap-2">
-            <div className="flex shrink-0 items-center justify-center">
-              <Image
-                src="/logo.svg"
-                alt="NutriSport Pro"
-                width={80}
-                height={80}
-                className="print:h-10 print:w-10"
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-xl font-semibold tracking-tight text-emerald-800 print:text-base">
+    <div className="min-h-screen bg-[#f8faf9] lg:flex print:block print:bg-white">
+      <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[260px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r print:hidden">
+        <div className="flex h-[76px] items-center justify-between gap-3 border-b border-slate-100 px-4 lg:justify-start lg:px-5">
+          <Link
+            href="/dashboard"
+            className="flex min-w-0 items-center gap-3"
+            aria-label="NutriSport Pro"
+          >
+            <Image
+              src="/logo.svg"
+              alt=""
+              width={40}
+              height={40}
+              className="h-10 w-10 shrink-0"
+              priority
+            />
+            <div className="min-w-0 leading-none">
+              <div className="truncate text-[18px] font-bold tracking-[-0.025em] text-[#003626]">
                 NutriSport Pro
               </div>
-              <div className="mt-1 truncate text-xs font-medium uppercase tracking-wide text-slate-400 print:text-[9px]">
+              <div className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-700">
                 Client nutrition
               </div>
             </div>
-          </div>
-          <form action={signOut} className="shrink-0 lg:hidden print:hidden">
+          </Link>
+          <form action={signOut} className="shrink-0 lg:hidden">
             <SubmitButton
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
               pendingLabel=""
               icon="logout"
-              ariaLabel="Sign out"
+              ariaLabel="Cerrar sesión"
             />
           </form>
         </div>
 
-        <nav className="flex gap-1 p-2 lg:block lg:p-0 print:hidden">
+        <nav
+          className="flex gap-1 overflow-x-auto p-2.5 lg:block lg:space-y-1 lg:p-3"
+          aria-label="Navegación principal"
+        >
           <NavLink href="/dashboard" label="Dashboard" icon="dashboard" />
-          <NavLink href="/clients" label="Clients" icon="clients" />
+          <NavLink href="/clients" label="Clientes" icon="clients" />
+          <NavLink href="/appointments" label="Citas" icon="appointments" />
         </nav>
 
-        <div className="mt-auto hidden border-t border-slate-200 p-5 lg:block print:hidden">
-          <div className="text-xs uppercase tracking-wide text-slate-400">
-            Signed in
+        <div className="mt-auto hidden p-3 lg:block">
+          <div className="rounded-2xl bg-[#f7f8ff] p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#6ffbbe] text-sm font-bold text-[#005236]">
+                {accountInitials(userEmail)}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-emerald-700">
+                  Sesión clínica
+                </div>
+                <div className="mt-1 truncate text-xs text-slate-600">
+                  {userEmail ?? "Nutricionista"}
+                </div>
+              </div>
+            </div>
+            <div className="my-3 h-px bg-slate-200" />
+            <form action={signOut}>
+              <SubmitButton
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-red-700"
+                pendingLabel="Cerrando sesión..."
+                icon="logout"
+              >
+                Cerrar sesión
+              </SubmitButton>
+            </form>
           </div>
-          <div className="mt-1 truncate text-sm font-medium text-slate-700">
-            {userEmail ?? "Nutritionist"}
-          </div>
-          <form action={signOut} className="mt-4">
-            <SubmitButton
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
-              pendingLabel="Signing out..."
-              icon="logout"
-            >
-              Sign out
-            </SubmitButton>
-          </form>
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 print:block">
-        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 print:max-w-none print:px-0 print:py-3">
-          {children}
-        </div>
-      </main>
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 hidden h-[76px] items-center justify-between border-b border-slate-100 bg-white/90 px-6 backdrop-blur-xl lg:flex print:hidden">
+          <AppBreadcrumb />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+              aria-label="Ver mensajes"
+              title="Ver mensajes"
+            >
+              <Bell className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <Link href="/clients/new" className="clinical-button-primary">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Nuevo cliente
+            </Link>
+          </div>
+        </header>
+
+        <main className="min-w-0 print:block">
+          <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6 print:max-w-none print:px-0 print:py-3">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

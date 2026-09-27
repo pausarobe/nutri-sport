@@ -25,12 +25,21 @@ import {
   optionalFormString,
   redirectWithMessage,
 } from "@/lib/form";
-import type { ActivityLevel, ClientSex } from "@/lib/database.types";
+import type {
+  ActivityLevel,
+  ClientSex,
+  ClientStatus,
+} from "@/lib/database.types";
 
 const FILE_BUCKET = "client-files";
 const clientTabPath = (clientId: string, tab: string) =>
   `/clients/${clientId}?tab=${tab}`;
 const CLIENT_SEX_VALUES = ["female", "male"] satisfies ClientSex[];
+const CLIENT_STATUS_VALUES = [
+  "active",
+  "paused",
+  "inactive",
+] satisfies ClientStatus[];
 const ACTIVITY_LEVEL_VALUES = [
   "sedentary",
   "light",
@@ -53,6 +62,13 @@ function optionalActivityLevel(formData: FormData) {
     : null;
 }
 
+function clientStatus(formData: FormData) {
+  const value = optionalFormString(formData, "status");
+  return CLIENT_STATUS_VALUES.includes(value as ClientStatus)
+    ? (value as ClientStatus)
+    : "active";
+}
+
 function noteType(formData: FormData) {
   return formString(formData, "note_type") === "supplement"
     ? "supplement"
@@ -62,6 +78,7 @@ function noteType(formData: FormData) {
 function clientPayload(formData: FormData) {
   return {
     name: formString(formData, "name"),
+    status: clientStatus(formData),
     email: optionalFormString(formData, "email"),
     phone: optionalFormString(formData, "phone"),
     sex: optionalClientSex(formData),
@@ -784,8 +801,15 @@ export async function addClientAppointment(formData: FormData) {
   const { supabase, userId } = await getAuthedSupabase();
   const clientId = formString(formData, "client_id");
   const scheduledDate = optionalFormString(formData, "scheduled_date");
+  const durationMinutes = Math.min(
+    480,
+    Math.max(
+      15,
+      Math.round(optionalFormNumber(formData, "duration_minutes") ?? 60),
+    ),
+  );
   const appointmentType =
-    optionalFormString(formData, "appointment_type") ?? "Revision mensual";
+    optionalFormString(formData, "appointment_type") ?? "Revisión mensual";
 
   if (!clientId) redirect("/clients");
 
@@ -802,6 +826,7 @@ export async function addClientAppointment(formData: FormData) {
     client_id: clientId,
     scheduled_date: scheduledDate,
     scheduled_time: optionalFormString(formData, "scheduled_time"),
+    duration_minutes: durationMinutes,
     appointment_type: appointmentType,
     notes: optionalFormString(formData, "notes"),
   });

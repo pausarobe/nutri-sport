@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+
+<html lang="es"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-lowest":"#ffffff","on-error-container":"#93000a","on-primary-fixed-variant":"#0e513b","surface-tint":"#2c6952","on-surface":"#131b2e","on-tertiary-fixed-variant":"#004b73","on-background":"#131b2e","surface-bright":"#faf8ff","on-surface-variant":"#404944","secondary":"#006c49","secondary-container":"#6cf8bb","on-tertiary":"#ffffff","primary-fixed":"#b1f0d3","on-primary":"#ffffff","tertiary-fixed-dim":"#93ccff","inverse-primary":"#95d3b8","background":"#faf8ff","secondary-fixed-dim":"#4edea3","primary":"#003626","surface-container-highest":"#dae2fd","surface-variant":"#dae2fd","on-secondary-fixed-variant":"#005236","inverse-on-surface":"#eef0ff","on-secondary-container":"#00714d","surface":"#faf8ff","inverse-surface":"#283044","tertiary":"#00324f","outline":"#707974","surface-container-high":"#e2e7ff","secondary-fixed":"#6ffbbe","tertiary-fixed":"#cce5ff","surface-container":"#eaedff","on-primary-container":"#82c0a5","on-tertiary-container":"#60baff","on-error":"#ffffff","on-tertiary-fixed":"#001d31","error":"#ba1a1a","on-secondary-fixed":"#002113","on-secondary":"#ffffff","surface-container-low":"#f2f3ff","tertiary-container":"#004971","primary-container":"#0b4f3a","on-primary-fixed":"#002116","surface-dim":"#d2d9f4","error-container":"#ffdad6","outline-variant":"#bfc9c2","primary-fixed-dim":"#95d3b8"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"gutter-sm":"1rem","margin":"2rem","gutter":"1.5rem","space-lg":"1.5rem","space-xs":"0.25rem","space-md":"1rem","space-xl":"2.5rem","gutter-lg":"2rem","space-sm":"0.5rem","margin-desktop":"3rem","margin-mobile":"1rem"},"fontFamily":{"display-hero":["Plus Jakarta Sans"],"metric-val-md":["Plus Jakarta Sans"],"body-sm":["Inter"],"body-md":["Inter"],"headline-sm":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-lg":["Inter"],"caption":["Inter"],"metric-val-lg":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"label-ui":["Inter"],"label-caps":["Inter"]},"fontSize":{"display-hero":["44px",{"lineHeight":"52px","letterSpacing":"-0.03em","fontWeight":"800"}],"metric-val-md":["24px",{"lineHeight":"28px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["13px",{"lineHeight":"18px","fontWeight":"400"}],"body-md":["14px",{"lineHeight":"22px","fontWeight":"400"}],"headline-sm":["18px",{"lineHeight":"26px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg-mobile":["26px",{"lineHeight":"34px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"26px","fontWeight":"400"}],"caption":["12px",{"lineHeight":"16px","fontWeight":"400"}],"metric-val-lg":["36px",{"lineHeight":"40px","letterSpacing":"-0.03em","fontWeight":"800"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.025em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","letterSpacing":"-0.02em","fontWeight":"600"}],"label-ui":["13px",{"lineHeight":"16px","fontWeight":"500"}],"label-caps":["11px",{"lineHeight":"16px","letterSpacing":"0.06em","fontWeight":"700"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col"><div class="h-20 px-space-md flex items-center gap-space-sm"><img alt="NutriSport Pro Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XV3xqtv01elpF3pvl0NbHDkzxzP8Q_VctzDLp_xktDIjlI-NTk3tCiwFnx-VgMaDliYNw3ZB1638CBpG5Vz_eoy3rm_yv2ZYc9II6RSahpjM3iVqolPuwJCikEaQro6uRNEtRXq1N2FB0qifYw8FwHzYXdDCYrJtLmrfpOGlHGz9CF2fAz35zRSBdxASZHv9R2wX-Js8gLhgXoMonlNhOY5OHHyni4_m-a_a8WeFbsHeFCUBFBL7t_ZRCg"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary leading-tight tracking-tight">NutriSport Pro</span><span class="font-label-caps text-label-caps text-secondary font-bold tracking-wider">CLIENT NUTRITION</span></div></div><div class="px-space-md py-space-xs"><div class="h-px w-full bg-surface-container-high/60"></div></div><nav class="flex flex-col gap-space-xs px-space-sm mt-space-sm" data-active-classes="bg-primary-container text-on-primary font-semibold shadow-[0_2px_8px_rgba(11,79,58,0.12)]"><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-body-md text-body-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span>Dashboard</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg transition-all bg-primary-container text-on-primary font-semibold shadow-[0_2px_8px_rgba(11,79,58,0.12)]" data-path="clientes" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span>Clientes</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-body-md text-body-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="citas-y-calendario" href="#"><span class="material-symbols-outlined text-[20px]">calendar_month</span><span>Citas &amp; Calendario</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-body-md text-body-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="biblioteca-de-dietas-y-alimentos" href="#"><span class="material-symbols-outlined text-[20px]">menu_book</span><span>Biblioteca de Dietas &amp; Alimentos</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg font-body-md text-body-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="configuracion" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span>Configuración</span></a></nav></div><div class="flex flex-col p-space-md gap-space-sm bg-surface-container-low/40 rounded-t-xl mx-space-sm mb-space-sm"><div class="flex items-center gap-space-sm"><div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container font-headline-sm text-headline-sm flex items-center justify-center font-bold shadow-[0_1px_3px_rgba(11,79,58,0.06)]">PS</div><div class="flex flex-col min-w-0 flex-1"><span class="font-label-ui text-label-ui text-on-surface font-semibold truncate">Pau Sarobe</span><span class="font-caption text-caption text-on-surface-variant truncate">pau.sarobe@gmail.com</span><span class="inline-block mt-space-xs font-label-caps text-label-caps text-secondary font-bold uppercase tracking-wider">Nutricionista Deportivo</span></div></div><div class="h-px w-full bg-surface-container-high/60 my-space-xs"></div><a class="flex items-center justify-center gap-space-xs w-full py-space-xs px-space-sm rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-all" data-path="login" href="#"><span class="material-symbols-outlined text-[18px]">logout</span><span>Cerrar sesión</span></a></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] z-40 flex items-center justify-between px-gutter-lg"><div class="flex items-center gap-space-md"><img alt="NutriSport Pro Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XV3xqtv01elpF3pvl0NbHDkzxzP8Q_VctzDLp_xktDIjlI-NTk3tCiwFnx-VgMaDliYNw3ZB1638CBpG5Vz_eoy3rm_yv2ZYc9II6RSahpjM3iVqolPuwJCikEaQro6uRNEtRXq1N2FB0qifYw8FwHzYXdDCYrJtLmrfpOGlHGz9CF2fAz35zRSBdxASZHv9R2wX-Js8gLhgXoMonlNhOY5OHHyni4_m-a_a8WeFbsHeFCUBFBL7t_ZRCg"/><nav class="flex items-center gap-space-xs font-label-ui text-label-ui text-on-surface-variant"><span class="font-medium text-on-surface-variant">NutriSport Pro</span><span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span><span class="font-semibold text-secondary">Portal Clínico</span></nav></div><div class="flex items-center gap-space-md"><div class="relative flex items-center w-72"><span class="material-symbols-outlined absolute left-3 text-[18px] text-outline">search</span><input class="w-full h-10 pl-9 pr-4 rounded-lg bg-surface-container-low font-body-sm text-body-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-2 focus:ring-secondary/30 transition-all" placeholder="Buscar atleta, biomarcador o plan..." type="text"/></div><button class="relative p-space-sm rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface-container-lowest"></span></button><button class="flex items-center gap-space-xs h-10 px-space-md rounded-lg bg-primary-container text-on-primary font-label-ui text-label-ui font-semibold shadow-[0_1px_3px_rgba(11,79,58,0.12)] hover:bg-primary transition-all" type="button"><span class="material-symbols-outlined text-[18px]">add</span><span>+ Nuevo Cliente</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="w-full pt-20 px-gutter-lg pb-margin-desktop bg-surface min-h-screen"><div class="flex flex-col w-full gap-y-6">
+<!-- TOP BREADCRUMB & BACK ACTION -->
+<div class="flex items-center justify-between">
+<a class="inline-flex items-center gap-space-xs px-3 py-1.5 rounded-lg bg-surface-container-lowest text-secondary font-label-ui text-label-ui hover:bg-surface-container-low transition-all shadow-sm" href="#">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+<span>Volver a clientes</span>
+</a>
+<div class="flex items-center gap-space-xs font-caption text-caption text-on-surface-variant">
+<span>Registro ISAK #4829</span>
+<span>•</span>
+<span class="font-medium text-primary">Última medición: 12 Octubre 2024</span>
+</div>
+</div>
+<!-- CLIENT HEADER PROFILE CARD -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-sm p-6 overflow-hidden">
+<div class="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-secondary-container/20 blur-3xl pointer-events-none"></div>
+<div class="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<!-- Athlete Identifiers -->
+<div class="flex items-center gap-5">
+<div class="relative flex-shrink-0">
+<div class="w-16 h-16 rounded-full bg-secondary/10 text-secondary flex items-center justify-center font-display-hero text-[22px] font-bold shadow-inner">
+            GM
+          </div>
+<span class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-secondary ring-2 ring-surface-container-lowest" title="ISAK Nivel 2 Aprobado"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-3 flex-wrap">
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Guillem Monserrat</h1>
+<span class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-secondary-container/60 text-on-secondary-container font-label-caps text-label-caps uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+              Plan Activo • Fase Definición
+            </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1 flex items-center gap-2">
+<span>Atleta desde May 6, 2026</span>
+<span class="text-outline-variant">•</span>
+<span class="font-medium text-primary">Hoquei patins (Competición)</span>
+<span class="text-outline-variant">•</span>
+<span class="text-secondary font-medium">Categoría Senior OK Liga</span>
+</p>
+</div>
+</div>
+<!-- Quick Action CTA Group -->
+<div class="flex items-center gap-3 flex-wrap">
+<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container-low text-on-surface font-label-ui text-label-ui hover:bg-surface-container hover:text-primary transition-all" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+<span>Editar Datos</span>
+</button>
+<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container-low text-on-surface font-label-ui text-label-ui hover:bg-surface-container hover:text-primary transition-all" type="button">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+<span>Generar Informe PDF</span>
+</button>
+<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-container text-on-primary font-label-ui text-label-ui shadow-sm hover:bg-primary transition-all" type="button">
+<span class="material-symbols-outlined text-[18px]">scale</span>
+<span>Nueva Medición</span>
+</button>
+</div>
+</div>
+</div>
+<!-- NAVIGATION TABS -->
+<div class="flex items-center gap-1.5 p-1 bg-surface-container-low rounded-xl overflow-x-auto">
+<button class="px-4 py-2 rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface whitespace-nowrap transition-colors" type="button">Ficha</button>
+<button class="px-4 py-2 rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface whitespace-nowrap transition-colors" type="button">Peso &amp; Evolución</button>
+<button class="px-4 py-2 rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface whitespace-nowrap transition-colors" type="button">Plan Nutricional</button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-lowest text-primary font-label-ui text-label-ui font-semibold shadow-sm whitespace-nowrap" type="button">Antropometría (ISAK)</button>
+<button class="px-4 py-2 rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface whitespace-nowrap transition-colors" type="button">Citas</button>
+<button class="px-4 py-2 rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface whitespace-nowrap transition-colors" type="button">Informe</button>
+<button class="px-4 py-2 rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface whitespace-nowrap transition-colors" type="button">Notas</button>
+<button class="px-4 py-2 rounded-lg font-label-ui text-label-ui text-on-surface-variant hover:text-on-surface whitespace-nowrap transition-colors" type="button">Archivos</button>
+</div>
+<!-- SECTION 1: ATLETA OVERVIEW METRICS GRID -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+<!-- Card 1: Paciente -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Paciente</span>
+<div class="mt-2">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate block">Guillem M.</span>
+<span class="font-caption text-caption text-on-surface-variant">Ficha #2024-91</span>
+</div>
+</div>
+<!-- Card 2: Edad -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Edad</span>
+<div class="mt-2 flex items-baseline gap-1">
+<span class="font-metric-val-md text-metric-val-md text-on-surface">22</span>
+<span class="font-caption text-caption text-on-surface-variant">años</span>
+</div>
+<span class="font-caption text-caption text-secondary mt-1">Metabolismo pico</span>
+</div>
+<!-- Card 3: Sexo -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Sexo</span>
+<div class="mt-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">male</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Hombre</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant mt-1">Ecuación ISAK Masc.</span>
+</div>
+<!-- Card 4: Peso Actual -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Peso Actual</span>
+<span class="font-label-caps text-label-caps text-secondary font-bold bg-secondary/10 px-1.5 py-0.5 rounded">-0.6 kg</span>
+</div>
+<div class="mt-2 flex items-baseline gap-1">
+<span class="font-metric-val-lg text-metric-val-lg text-primary">65.0</span>
+<span class="font-caption text-caption text-on-surface-variant">kg</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant mt-1">Objetivo: 64.5 kg</span>
+</div>
+<!-- Card 5: Talla -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Talla (Estatura)</span>
+<div class="mt-2 flex items-baseline gap-1">
+<span class="font-metric-val-lg text-metric-val-lg text-on-surface">169.5</span>
+<span class="font-caption text-caption text-on-surface-variant">cm</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant mt-1">Talla sentado: 91.2 cm</span>
+</div>
+<!-- Card 6: IMC -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">IMC Calculado</span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<div class="mt-2 flex items-baseline gap-1">
+<span class="font-metric-val-md text-metric-val-md text-on-surface">22.6</span>
+<span class="font-caption text-caption text-on-surface-variant">kg/m²</span>
+</div>
+<span class="font-caption text-caption text-secondary font-medium mt-1 truncate">Normopeso atlético</span>
+</div>
+</div>
+<!-- SECTION 2: COMPOSICIÓN CORPORAL 4 COMPONENTES -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col gap-6">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">pie_chart</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Composición Corporal (Fraccionamiento 4 Componentes)</h2>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">Modelos validados: Carter (1982) • Rocha (1974) • Lee et al. (2000)</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-ui text-label-ui text-on-surface-variant">Masa corporal evaluada:</span>
+<span class="font-label-ui text-label-ui font-bold text-primary px-2.5 py-1 rounded bg-surface-container-low">65.00 kg</span>
+</div>
+</div>
+<!-- Segmented Multi-Color Progress Bar -->
+<div class="flex flex-col gap-2">
+<div class="w-full h-4 rounded-full overflow-hidden flex bg-surface-container-low p-0.5 gap-0.5">
+<!-- Grasa: 9.51% (Amber / Terracotta) -->
+<div class="h-full rounded-l-full bg-amber-500 transition-all" style="width: 9.51%;" title="Masa Grasa: 9.51%"></div>
+<!-- Muscular: 32.97% (Clinical Blue/Teal) -->
+<div class="h-full bg-sky-600 transition-all" style="width: 32.97%;" title="Masa Muscular: 32.97%"></div>
+<!-- Ósea: 14.61% (Emerald Green) -->
+<div class="h-full bg-secondary transition-all" style="width: 14.61%;" title="Masa Ósea: 14.61%"></div>
+<!-- Residual: 42.91% (Slate / Gray) -->
+<div class="h-full rounded-r-full bg-slate-400 transition-all" style="width: 42.91%;" title="Masa Residual: 42.91%"></div>
+</div>
+<!-- Proportion Key Scale -->
+<div class="flex items-center justify-between text-caption font-caption text-outline px-1">
+<span>0%</span>
+<span>25%</span>
+<span>50%</span>
+<span>75%</span>
+<span>100%</span>
+</div>
+</div>
+<!-- 4 Clean Metric Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Card: Masa Grasa -->
+<div class="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-amber-500"></span>
+<span class="font-label-ui text-label-ui font-semibold text-on-surface">Masa Grasa</span>
+</div>
+<span class="font-label-caps text-label-caps px-2 py-0.5 rounded bg-surface-container-lowest text-amber-700 font-bold">Carter '82</span>
+</div>
+<div class="mt-3 flex items-baseline justify-between">
+<div class="flex items-baseline gap-1">
+<span class="font-metric-val-lg text-metric-val-lg text-on-surface">9.51</span>
+<span class="font-caption text-caption text-on-surface-variant">%</span>
+</div>
+<span class="font-headline-sm text-headline-sm font-semibold text-on-surface">6.18 <span class="font-caption text-caption text-on-surface-variant font-normal">kg</span></span>
+</div>
+<div class="mt-2 pt-2 bg-surface-container-lowest/50 rounded p-2 flex items-center justify-between font-caption text-caption">
+<span class="text-on-surface-variant">Rango ideal deporte:</span>
+<span class="font-medium text-primary">8.0% - 11.5%</span>
+</div>
+</div>
+<!-- Card: Masa Muscular -->
+<div class="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-sky-600"></span>
+<span class="font-label-ui text-label-ui font-semibold text-on-surface">Masa Muscular</span>
+</div>
+<span class="font-label-caps text-label-caps px-2 py-0.5 rounded bg-surface-container-lowest text-sky-700 font-bold">Lee 2000</span>
+</div>
+<div class="mt-3 flex items-baseline justify-between">
+<div class="flex items-baseline gap-1">
+<span class="font-metric-val-lg text-metric-val-lg text-on-surface">32.97</span>
+<span class="font-caption text-caption text-on-surface-variant">%</span>
+</div>
+<span class="font-headline-sm text-headline-sm font-semibold text-on-surface">21.43 <span class="font-caption text-caption text-on-surface-variant font-normal">kg</span></span>
+</div>
+<div class="mt-2 pt-2 bg-surface-container-lowest/50 rounded p-2 flex items-center justify-between font-caption text-caption">
+<span class="text-on-surface-variant">Índice Músculo/Óseo:</span>
+<span class="font-medium text-secondary">2.26 (Óptimo)</span>
+</div>
+</div>
+<!-- Card: Masa Ósea -->
+<div class="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-secondary"></span>
+<span class="font-label-ui text-label-ui font-semibold text-on-surface">Masa Ósea</span>
+</div>
+<span class="font-label-caps text-label-caps px-2 py-0.5 rounded bg-surface-container-lowest text-secondary font-bold">Rocha '74</span>
+</div>
+<div class="mt-3 flex items-baseline justify-between">
+<div class="flex items-baseline gap-1">
+<span class="font-metric-val-lg text-metric-val-lg text-on-surface">14.61</span>
+<span class="font-caption text-caption text-on-surface-variant">%</span>
+</div>
+<span class="font-headline-sm text-headline-sm font-semibold text-on-surface">9.50 <span class="font-caption text-caption text-on-surface-variant font-normal">kg</span></span>
+</div>
+<div class="mt-2 pt-2 bg-surface-container-lowest/50 rounded p-2 flex items-center justify-between font-caption text-caption">
+<span class="text-on-surface-variant">Biestiloideo / Bicondíleo:</span>
+<span class="font-medium text-primary">Normal robusto</span>
+</div>
+</div>
+<!-- Card: Masa Residual -->
+<div class="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-slate-400"></span>
+<span class="font-label-ui text-label-ui font-semibold text-on-surface">Masa Residual</span>
+</div>
+<span class="font-label-caps text-label-caps px-2 py-0.5 rounded bg-surface-container-lowest text-slate-700 font-bold">Würch / Clarys</span>
+</div>
+<div class="mt-3 flex items-baseline justify-between">
+<div class="flex items-baseline gap-1">
+<span class="font-metric-val-lg text-metric-val-lg text-on-surface">42.91</span>
+<span class="font-caption text-caption text-on-surface-variant">%</span>
+</div>
+<span class="font-headline-sm text-headline-sm font-semibold text-on-surface">27.89 <span class="font-caption text-caption text-on-surface-variant font-normal">kg</span></span>
+</div>
+<div class="mt-2 pt-2 bg-surface-container-lowest/50 rounded p-2 flex items-center justify-between font-caption text-caption">
+<span class="text-on-surface-variant">Vísceras y fluidos:</span>
+<span class="font-medium text-on-surface">Equilibrado</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION 3: SOMATOTIPO HEATH-CARTER & PLIEGUES CUTÁNEOS -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- SOMATOCHART (7 cols) -->
+<div class="lg:col-span-7 bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-6">
+<div class="flex items-center justify-between">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">change_history</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Somatotipo Heath-Carter</h2>
+</div>
+<p class="font-caption text-caption text-on-surface-variant">Clasificación morfológica: <span class="font-bold text-primary">Mesomórfico - Ectomorfo</span></p>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-low rounded-lg font-caption text-caption text-primary">
+<span>X: <strong>1.09</strong></span>
+<span class="text-outline-variant">|</span>
+<span>Y: <strong>1.06</strong></span>
+</div>
+</div>
+<!-- Graphic Somatochart Triangle SVG & Triad Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
+<!-- Interactive Chart Visual -->
+<div class="sm:col-span-7 flex flex-col items-center justify-center relative">
+<div class="w-full max-w-[280px] aspect-square relative flex items-center justify-center p-2 bg-surface-container-low/40 rounded-2xl">
+<!-- SVG Somatochart Triangle -->
+<svg aria-label="Somatocarta Heath-Carter" class="w-full h-full text-outline-variant overflow-visible" viewbox="-8 -8 16 16">
+<!-- Concentric Triangles & Grid Lines -->
+<polygon class="text-outline/30" fill="none" points="0,7.5 -6.5,-3.75 6.5,-3.75" stroke="currentColor" stroke-dasharray="0.8,0.8" stroke-width="0.3"></polygon>
+<polygon class="text-outline/40" fill="none" points="0,5.5 -4.76,-2.75 4.76,-2.75" stroke="currentColor" stroke-width="0.4"></polygon>
+<polygon class="text-outline/25" fill="none" points="0,3.5 -3.03,-1.75 3.03,-1.75" stroke="currentColor" stroke-dasharray="0.6,0.6" stroke-width="0.3"></polygon>
+<!-- Axes -->
+<line class="text-outline/30" stroke="currentColor" stroke-width="0.3" x1="-7" x2="7" y1="0" y2="0"></line>
+<line class="text-outline/30" stroke="currentColor" stroke-width="0.3" x1="0" x2="0" y1="-7" y2="7"></line>
+<!-- Vertex Label Markers -->
+<text fill="#003626" font-size="0.85" font-weight="700" text-anchor="middle" x="0" y="7.2">MESOMORFO</text>
+<text fill="#ba1a1a" font-size="0.85" font-weight="700" text-anchor="middle" x="-5.5" y="-4.2">ENDOMORFO</text>
+<text fill="#004b73" font-size="0.85" font-weight="700" text-anchor="middle" x="5.5" y="-4.2">ECTOMORFO</text>
+<!-- Target Zone Shadow Bubble -->
+<circle cx="1.09" cy="1.06" fill="rgba(0,108,73,0.12)" r="1.6"></circle>
+<!-- Historical Vector / Previous Measure -->
+<line stroke="#006c49" stroke-dasharray="0.5,0.5" stroke-width="0.35" x1="0.8" x2="1.09" y1="0.4" y2="1.06"></line>
+<circle cx="0.8" cy="0.4" fill="#707974" opacity="0.6" r="0.3"></circle>
+<!-- Current Athlete Coordinate: (X: 1.09, Y: 1.06) -->
+<circle class="shadow-lg" cx="1.09" cy="1.06" fill="#006c49" r="0.65" stroke="#ffffff" stroke-width="0.25"></circle>
+<text fill="#003626" font-size="0.75" font-weight="800" text-anchor="middle" x="1.09" y="0.2">GM (1.09, 1.06)</text>
+</svg>
+</div>
+<span class="font-caption text-caption text-on-surface-variant mt-2 text-center">Desplazamiento positivo hacia mesomorfia (+0.4)</span>
+</div>
+<!-- 3 Heath-Carter Components -->
+<div class="sm:col-span-5 flex flex-col gap-3">
+<div class="p-3.5 rounded-xl bg-surface-container-low flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Endomorfia</span>
+<span class="font-caption text-caption text-on-surface-variant">Adiposidad relativa</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-metric-val-md text-metric-val-md text-on-surface">1.19</span>
+<span class="font-label-caps text-label-caps text-secondary font-bold">Baja</span>
+</div>
+</div>
+<div class="p-3.5 rounded-xl bg-surface-container-low flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Mesomorfia</span>
+<span class="font-caption text-caption text-on-surface-variant">Desarrollo músculo-esquelético</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-metric-val-md text-metric-val-md text-primary">2.27</span>
+<span class="font-label-caps text-label-caps text-secondary font-bold">Moderada-Alta</span>
+</div>
+</div>
+<div class="p-3.5 rounded-xl bg-surface-container-low flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Ectomorfia</span>
+<span class="font-caption text-caption text-on-surface-variant">Linealidad relativa</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-metric-val-md text-metric-val-md text-tertiary">2.28</span>
+<span class="font-label-caps text-label-caps text-secondary font-bold">Equilibrada</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Historical Context References -->
+<div class="pt-4 border-t-0 bg-surface-container-low/50 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-caption font-caption text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-secondary">verified</span>
+<span>Perfil élite Hoquei OK Liga: <strong>1.4 - 2.8 - 2.1</strong></span>
+</div>
+<span class="text-secondary font-medium">Alineación 94% con el modelo de rendimiento</span>
+</div>
+</div>
+<!-- SUMATORIA Y PLIEGUES CUTÁNEOS (5 cols) -->
+<div class="lg:col-span-5 bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-5">
+<div class="flex items-center justify-between">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">straighten</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Pliegues ISAK (6)</h2>
+</div>
+<p class="font-caption text-caption text-on-surface-variant">Plicómetro Harpenden calibrado</p>
+</div>
+<div class="text-right">
+<span class="font-label-caps text-label-caps text-outline uppercase block">Sumatoria Σ6</span>
+<span class="font-metric-val-md text-metric-val-md text-primary font-bold">38.3 <span class="font-caption text-caption text-on-surface-variant font-normal">mm</span></span>
+</div>
+</div>
+<!-- Pliegues Breakdown List with Subtly Tinted Progress Bars -->
+<div class="flex flex-col gap-3">
+<!-- Tríceps -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<span class="text-on-surface font-medium">Tríceps</span>
+<span class="text-on-surface font-semibold">5.8 mm</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 29%;"></div>
+</div>
+</div>
+<!-- Subescapular -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<span class="text-on-surface font-medium">Subescapular</span>
+<span class="text-on-surface font-semibold">6.2 mm</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 31%;"></div>
+</div>
+</div>
+<!-- Supraespinal -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<span class="text-on-surface font-medium">Supraespinal</span>
+<span class="text-on-surface font-semibold">4.9 mm</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 24%;"></div>
+</div>
+</div>
+<!-- Abdominal -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<div class="flex items-center gap-1.5">
+<span class="text-on-surface font-medium">Abdominal</span>
+<span class="font-label-caps text-label-caps text-secondary font-bold bg-secondary/10 px-1 rounded">-1.1mm</span>
+</div>
+<span class="text-on-surface font-semibold">7.1 mm</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 35%;"></div>
+</div>
+</div>
+<!-- Muslo Anterior -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<span class="text-on-surface font-medium">Muslo anterior</span>
+<span class="text-on-surface font-semibold">8.3 mm</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 41%;"></div>
+</div>
+</div>
+<!-- Pantorrilla Medial -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<span class="text-on-surface font-medium">Pantorrilla medial</span>
+<span class="text-on-surface font-semibold">6.0 mm</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-low overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 30%;"></div>
+</div>
+</div>
+</div>
+<!-- Antropometrista & Certificación info -->
+<div class="p-3 bg-surface-container-low rounded-lg flex items-center justify-between font-caption text-caption text-on-surface-variant">
+<span>Técnico ISAK: <strong>Pau Sarobe (L2)</strong></span>
+<span class="text-secondary font-medium">TEM Inter-observador: &lt;1.5%</span>
+</div>
+</div>
+</div>
+<!-- SECTION 4: SUPLEMENTACIÓN & NOTAS CLÍNICAS -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- SUPLEMENTACIÓN ACTIVA (7 cols) -->
+<div class="lg:col-span-7 bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-5">
+<div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">medication</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Pauta de Suplementación Activa</h2>
+</div>
+<span class="font-label-caps text-label-caps px-2.5 py-1 rounded bg-secondary-container/50 text-on-secondary-container font-bold uppercase">En Curso</span>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mt-1">Estrategia ergogénica de soporte neuromuscular y buffering</p>
+</div>
+<!-- Supplements List -->
+<div class="flex flex-col gap-3">
+<!-- Supplement 1 -->
+<div class="p-4 rounded-xl bg-surface-container-low flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-lowest text-primary flex items-center justify-center flex-shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">water_drop</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<h3 class="font-label-ui text-label-ui font-bold text-on-surface">Creatina Creapure®</h3>
+<span class="font-label-caps text-label-caps text-secondary font-bold bg-surface-container-lowest px-2 py-0.5 rounded">Fase Mantenimiento</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">5 g / día • Administrar con hidratos de carbono post-entreno en días de pista o fuerza.</p>
+</div>
+</div>
+<!-- Supplement 2 -->
+<div class="p-4 rounded-xl bg-surface-container-low flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-lowest text-secondary flex items-center justify-center flex-shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<h3 class="font-label-ui text-label-ui font-bold text-on-surface">Beta-Alanina (CarnoSyn)</h3>
+<span class="font-label-caps text-label-caps text-primary font-bold bg-surface-container-lowest px-2 py-0.5 rounded">Tamponador Ácido</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">3.2 g / día • Dividir en 2 tomas de 1.6g (desayuno y merienda) para evitar parestesia.</p>
+</div>
+</div>
+<!-- Supplement 3 -->
+<div class="p-4 rounded-xl bg-surface-container-low flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-lowest text-tertiary flex items-center justify-center flex-shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">fitness_center</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<h3 class="font-label-ui text-label-ui font-bold text-on-surface">Proteína Whey Isolada (WPI 90)</h3>
+<span class="font-label-caps text-label-caps text-on-surface-variant font-bold bg-surface-container-lowest px-2 py-0.5 rounded">Recuperación Rápida</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">30 g en días de doble sesión (Pista mañana + Gimnasio tarde) con 40g de maltodextrina.</p>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between text-caption font-caption text-outline px-1">
+<span>Protocolo antidopaje: WADA Compliant</span>
+<button class="text-secondary font-semibold hover:underline" type="button">+ Modificar Suplementación</button>
+</div>
+</div>
+<!-- CLINICAL OBSERVATIONS & EVOLUTION (5 cols) -->
+<div class="lg:col-span-5 bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between gap-5">
+<div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">notes</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Notas y Directrices Dietéticas</h2>
+</div>
+<button class="text-secondary hover:text-primary" type="button">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+</button>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mt-1">Recomendaciones nutricionales del dietista</p>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-low/60 flex flex-col gap-3 font-body-sm text-body-sm text-on-surface leading-relaxed">
+<p>
+          El atleta Guillem ha logrado una reducción de <strong>0.6 kg</strong> respecto al mes previo con excelente retención de masa esquelética (21.43 kg).
+        </p>
+<p>
+          La sumatoria de 6 pliegues cutáneos (38.3 mm) sitúa al deportista en el percentil 85 superior para jugadores de hockey sobre patines de máxima división.
+        </p>
+<p class="text-on-surface-variant">
+<strong>Ajustes para próximas 3 semanas:</strong> Mantener superávit hídrico pre-partido (mínimo 500ml de solución isotónica 6% CHO) y ajustar timing de creatina para maximizar fosfocreatina en sprints repetidos de 15 segundos.
+        </p>
+</div>
+<!-- Next Milestone & Appointment -->
+<div class="p-3.5 bg-surface-container-low rounded-xl flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">event</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-ui text-label-ui font-semibold text-on-surface">Próxima Antropometría</span>
+<span class="font-caption text-caption text-on-surface-variant">10 Noviembre 2024 • 09:30 h</span>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest text-primary font-label-ui text-label-ui shadow-sm hover:bg-surface-container transition-all" type="button">
+          Reagendar
+        </button>
+</div>
+</div>
+</div>
+<!-- SECTION 5: CLINICAL PHOTOGRAPHIC LOG & ARCHIVE REFERENCES -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">photo_library</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Registro Fotográfico Antropométrico &amp; Archivo Clínico</h2>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-caption text-caption text-on-surface-variant">Consentimiento GDPR firmado</span>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low text-primary font-label-ui text-label-ui hover:bg-surface-container transition-all" type="button">
+<span class="material-symbols-outlined text-[16px]">upload_file</span>
+<span>Añadir Tomas</span>
+</button>
+</div>
+</div>
+<!-- Triple Image Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Visual Card 1: Perfil Frontal -->
+<div class="group relative rounded-xl overflow-hidden bg-surface-container-low flex flex-col shadow-sm">
+<div class="relative aspect-[16/9] w-full overflow-hidden bg-surface-container">
+<img alt="Postura Frontal de Evaluación ISAK" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbMCly82-DrFUXiPz1S5AzOcdkdPbt9CQ34CWOi6TRcQM62wlnjNcVVJoltwIKnBThHFlD2s69Ui6MrEyty-BK1w5mgQH_i6dVqCjna7FNiHnmbXGpbwKMMPmN0wsCPk3NMqBbJrQ_uMyMmNAVPqFreCT59pi-LUTL_SXufH7oqBp_2TeuOQuG8hqeS_5tb6QdKW2l6oocvqgrddObxESRbf3_vGMrRCvzBZ5vQrTiHVUWXLwOE-k6w_Zn8H1a-f4LLXE"/>
+<span class="absolute top-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-primary font-label-caps text-label-caps uppercase">Vista Frontal</span>
+<span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-on-surface/80 text-surface font-caption text-caption">12 Oct 2024</span>
+</div>
+<div class="p-3 bg-surface-container-lowest flex items-center justify-between">
+<span class="font-label-ui text-label-ui text-on-surface font-medium">Biacromial / Tórax</span>
+<span class="font-caption text-caption text-secondary font-bold">Sin asimetrías</span>
+</div>
+</div>
+<!-- Visual Card 2: Perfil Lateral -->
+<div class="group relative rounded-xl overflow-hidden bg-surface-container-low flex flex-col shadow-sm">
+<div class="relative aspect-[16/9] w-full overflow-hidden bg-surface-container">
+<img alt="Marcaje de Puntos Anatómicos ISAK" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYX2ONDhBsA6R-pnTe9Pxy9PTGfhNdmuAGF24ZzqHa6jOqLClYN4hRwHojeN_DlQ_zwKyHeTFttOCGIBV7ZpJyUADr3PMK4qke_0bBnFzp6QjeUni3ZbU50DvDMwijv_u2vNyYbxUtxC81o02oIW54Au64xuD4sjS9yueUb0OsZbCst4_Cl9bAto9fxfXGooTmhFYTofVLdi_m2LkyAOobm6XuZUX-_mXaP5PXSeYTS8t_BgUYHMOe-INXtmMXCIv79Dc"/>
+<span class="absolute top-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-secondary font-label-caps text-label-caps uppercase">Marcaje Anatómico</span>
+<span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-on-surface/80 text-surface font-caption text-caption">Puntos Estándar</span>
+</div>
+<div class="p-3 bg-surface-container-lowest flex items-center justify-between">
+<span class="font-label-ui text-label-ui text-on-surface font-medium">Subescapular y Tríceps</span>
+<span class="font-caption text-caption text-primary font-bold">ISAK Nivel 2</span>
+</div>
+</div>
+<!-- Visual Card 3: Postura Posterior -->
+<div class="group relative rounded-xl overflow-hidden bg-surface-container-low flex flex-col shadow-sm">
+<div class="relative aspect-[16/9] w-full overflow-hidden bg-surface-container">
+<img alt="Bioimpedancia y Registro Antropométrico Comparativo" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZEf8NYxEbMSfxvBCSDrQclj1rPXmuzYYw1q0ab5a2XGZG2xziwDVC75_OtSqUoKMuh--d9YxNi_QWr2BmEDI-30YsmQK1SyFGKv5cEZ3pBIWC6fRe0xg69I9n0k1W1MygkjcNerjgZjOZDob0enmX16NHESwG_nzkoYP4JTADw0TQ1-SUfFhj-uPW0fH32uP4YJTCPbiyhUZ58B6bR1k6pHiRYFgnjLZ-zr4BQXxr2u4Ps9bakgfA_geuP02zRd1OkOY"/>
+<span class="absolute top-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-tertiary font-label-caps text-label-caps uppercase">Histórico Evolutivo</span>
+<span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-on-surface/80 text-surface font-caption text-caption">Comparativa T1 vs T2</span>
+</div>
+<div class="p-3 bg-surface-container-lowest flex items-center justify-between">
+<span class="font-label-ui text-label-ui text-on-surface font-medium">Diferencial Masa Magra</span>
+<span class="font-caption text-caption text-secondary font-bold">+1.2 kg Músculo</span>
+</div>
+</div>
+</div>
+</div>
+</div></main></div></body></html>

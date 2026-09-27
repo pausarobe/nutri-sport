@@ -35,9 +35,11 @@ import { EmptyState } from "@/components/empty-state";
 import { Notice } from "@/components/notice";
 import { NutritionPlanForm } from "@/components/nutrition-plan-form";
 import { AnthropometrySection } from "@/components/anthropometry-section";
+import { DeleteClientButton } from "@/components/delete-client-button";
 import { PrintButton } from "@/components/print-button";
 import { SubmitButton } from "@/components/submit-button";
 import { createClient } from "@/lib/supabase/server";
+import { clientStatusMeta } from "@/lib/client-status";
 import type {
   ClientAppointment,
   ClientFile,
@@ -55,7 +57,6 @@ import {
   deleteClientFile,
   deleteClientNote,
   deleteClientWeight,
-  deleteNutritionClient,
   reopenClientAppointment,
   updateClientWeight,
   uploadClientFile,
@@ -81,12 +82,10 @@ type WeightPoint = Pick<
   "id" | "created_at" | "measured_at" | "weight_kg"
 >;
 
-const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition cursor-pointer focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
-const labelClass =
-  "text-xs font-semibold uppercase tracking-wide text-slate-400 print:text-[7px]";
-const cardClass = "rounded-lg border border-slate-200 bg-white p-5 shadow-sm";
-const mutedTileClass = "rounded-lg border border-slate-200 bg-slate-50 p-4";
+const inputClass = "clinical-input cursor-pointer";
+const labelClass = "clinical-label print:text-[7px]";
+const cardClass = "clinical-card p-5 sm:p-6";
+const mutedTileClass = "rounded-xl bg-[#f7f8ff] p-4";
 
 const sexLabels: Record<ClientSex, string> = {
   female: "Mujer",
@@ -102,8 +101,8 @@ const activityLabels = {
 };
 
 const appointmentTypes = [
-  "Revision mensual",
-  "Antropometria",
+  "Revisión mensual",
+  "Antropometría",
   "Primera visita",
   "Consulta",
   "Seguimiento",
@@ -111,14 +110,13 @@ const appointmentTypes = [
 
 const clientTabs = [
   { key: "ficha", label: "Ficha" },
-  { key: "peso", label: "Peso" },
+  { key: "peso", label: "Peso y evolución" },
   { key: "plan", label: "Plan nutricional" },
-  { key: "antropometria", label: "Antropometria" },
+  { key: "antropometria", label: "Antropometría" },
   { key: "citas", label: "Citas" },
   { key: "informe", label: "Informe" },
   { key: "notas", label: "Notas" },
   { key: "archivos", label: "Archivos" },
-  { key: "danger", label: "Eliminar" },
 ] as const;
 
 const months = [
@@ -139,7 +137,7 @@ const months = [
 type ClientTab = (typeof clientTabs)[number]["key"];
 
 function resolveClientTab(value: string | undefined): ClientTab {
-  if (value === "informe" || value === "danger") return "antropometria";
+  if (value === "informe") return "antropometria";
   return clientTabs.some((tab) => tab.key === value)
     ? (value as ClientTab)
     : "ficha";
@@ -181,9 +179,10 @@ function numberLabel(value: number | null | undefined, unit = "") {
 }
 
 function dateParts(value: string) {
-  const [, month, day] = value.split("-");
+  const [year, month, day] = value.split("-");
   const monthIndex = Math.max(0, Number(month) - 1);
   return {
+    year: year ?? "",
     month: months[monthIndex] ?? "",
     day: day ?? "",
   };
@@ -218,7 +217,9 @@ function SectionTitle({
   return (
     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h2 className="font-semibold text-slate-950">{title}</h2>
+        <h2 className="text-lg font-bold tracking-[-0.02em] text-[#003626]">
+          {title}
+        </h2>
         {description ? (
           <p className="mt-1 text-sm text-slate-500">{description}</p>
         ) : null}
@@ -261,8 +262,13 @@ function DateBadge({ date }: { date: string }) {
   const parts = dateParts(date);
 
   return (
-    <div className="min-w-12 rounded-lg bg-emerald-50 px-3 py-2 text-center">
-      <div className={labelClass}>{parts.month}</div>
+    <div
+      className="min-w-20 rounded-lg bg-white px-3 py-2 text-center h-fit"
+      title={`${parts.day} ${parts.month} ${parts.year}`}
+    >
+      <div className={labelClass}>
+        {parts.month} {parts.year}
+      </div>
       <div className="text-lg font-semibold leading-none text-emerald-800">
         {parts.day}
       </div>
@@ -864,7 +870,7 @@ function AppointmentList({
   empty: string;
 }) {
   return (
-    <div className={cardClass}>
+    <div className={`${cardClass} bg-[#f2f3ff] rounded-xl`}>
       <h3 className="mb-3 font-semibold text-slate-950">{title}</h3>
       {appointments.length ? (
         <div className="divide-y divide-slate-100">
@@ -887,6 +893,7 @@ function AppointmentList({
                       {appointment.scheduled_time.slice(0, 5)}
                     </span>
                   ) : null}
+                  <span>{appointment.duration_minutes} min</span>
                   {appointment.notes ? <span>{appointment.notes}</span> : null}
                 </div>
               </div>
@@ -958,6 +965,7 @@ export default async function ClientDetailPage({
   if (clientResult.error || !clientResult.data) notFound();
 
   const client = clientResult.data;
+  const statusMeta = clientStatusMeta(client.status);
   const plan = planResult.data;
   const notes = notesResult.data ?? [];
   const supplementNotes = notes.filter(
@@ -1033,7 +1041,8 @@ export default async function ClientDetailPage({
           girths: latestGirths,
           diameters: latestDiameters,
         })!
-      : null) as AnthropometryResult;
+      : null
+  ) as AnthropometryResult;
   const selectedAnthro =
     anthropometryRows.find((row) => row.id === query?.anthropometry) ??
     latestAnthro;
@@ -1057,7 +1066,8 @@ export default async function ClientDetailPage({
           girths: selectedGirths,
           diameters: selectedDiameters,
         })!
-      : null) as AnthropometryResult;
+      : null
+  ) as AnthropometryResult;
   const orderedAnthropometryRows = [...anthropometryRows].reverse();
   const somatotypePoints = orderedAnthropometryRows
     .map((row) => {
@@ -1148,38 +1158,67 @@ export default async function ClientDetailPage({
 
   return (
     <>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between print:hidden">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/clients"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-600 transition hover:bg-white"
-            aria-label="Volver a clientes"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Link>
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg font-semibold text-emerald-800">
-            {initials(client.name)}
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
-              {client.name}
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Cliente desde {formatDate(client.created_at)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <Link
-            href={`/clients/${client.id}/edit`}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <Edit3 className="h-4 w-4" aria-hidden="true" />
-            Editar
-          </Link>
-        </div>
+      <div className="mb-4 print:hidden">
+        <Link
+          href="/clients"
+          className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:text-[#003626]"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Volver a clientes
+        </Link>
       </div>
+
+      <section className="relative mb-5 overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-r from-white via-white to-emerald-50 p-5 shadow-[0_1px_3px_rgba(11,79,58,0.03),0_10px_28px_rgba(15,23,42,0.03)] sm:p-6 print:hidden">
+        <div
+          className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-emerald-200/25 blur-3xl"
+          aria-hidden="true"
+        />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg font-bold text-[#0b4f3a] ring-2 ring-emerald-400 ring-offset-2 ring-offset-white">
+              {initials(client.name)}
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-[26px] font-bold leading-8 tracking-[-0.03em] text-[#131b2e] sm:text-[32px] sm:leading-10">
+                {client.name}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span
+                  className={`rounded-full border px-2.5 py-1 font-bold uppercase tracking-[0.04em] ${statusMeta.className}`}
+                >
+                  {statusMeta.badgeLabel}
+                </span>
+                <span>Cliente desde {formatDate(client.created_at)}</span>
+                {client.sport ? (
+                  <span className="rounded-full bg-white px-2.5 py-1 font-medium text-[#0b4f3a] shadow-sm">
+                    {client.sport}
+                  </span>
+                ) : null}
+                {client.goal ? (
+                  <span className="rounded-full bg-[#f2f3ff] px-2.5 py-1 font-medium text-slate-700">
+                    {client.goal}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2">
+            <Link
+              href={`/clients/${client.id}/edit`}
+              className="clinical-button-secondary"
+            >
+              <Edit3 className="h-4 w-4" aria-hidden="true" />
+              Editar datos
+            </Link>
+            {activeTab === "ficha" ? (
+              <DeleteClientButton
+                clientId={client.id}
+                clientName={client.name}
+              />
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <div className="mb-4 print:hidden">
         <Notice
@@ -1196,30 +1235,32 @@ export default async function ClientDetailPage({
       </div>
 
       <nav
-        className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-sm print:hidden"
+        className="mb-5 flex flex-nowrap gap-1.5 overflow-x-auto rounded-xl bg-[#f2f3ff] p-1.5 text-sm print:hidden"
         aria-label="Apartados del cliente"
         role="tablist"
       >
-        {clientTabs.filter((tab) => tab.key !== "informe" && tab.key !== "danger").map((tab) => {
-          const selected = activeTab === tab.key;
+        {clientTabs
+          .filter((tab) => tab.key !== "informe")
+          .map((tab) => {
+            const selected = activeTab === tab.key;
 
-          return (
-            <Link
-              key={tab.key}
-              href={clientTabHref(client.id, tab.key)}
-              className={`rounded-lg px-3 py-1.5 font-medium transition ${
-                selected
-                  ? "bg-emerald-800 text-white shadow-sm"
-                  : "text-slate-500 hover:bg-white hover:text-emerald-800"
-              }`}
-              aria-current={selected ? "page" : undefined}
-              aria-selected={selected}
-              role="tab"
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={tab.key}
+                href={clientTabHref(client.id, tab.key)}
+                className={`whitespace-nowrap rounded-lg px-4 py-2 font-medium transition ${
+                  selected
+                    ? "bg-white font-semibold text-[#0b4f3a] shadow-sm"
+                    : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
+                }`}
+                aria-current={selected ? "page" : undefined}
+                aria-selected={selected}
+                role="tab"
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
       </nav>
 
       <div>
@@ -1703,7 +1744,9 @@ export default async function ClientDetailPage({
                           defaultValue={client.sex ?? ""}
                           className={inputClass}
                         >
-                          <option value="" disabled>Selecciona</option>
+                          <option value="" disabled>
+                            Selecciona
+                          </option>
                           <option value="male">Hombre</option>
                           <option value="female">Mujer</option>
                         </select>
@@ -2044,63 +2087,76 @@ export default async function ClientDetailPage({
             <SectionTitle
               title="Citas"
               description="Proximas citas, completadas e historial."
-              action={
-                <form
-                  action={addClientAppointment}
-                  className="grid gap-2 sm:grid-cols-[150px_120px_170px_minmax(180px,1fr)_auto] sm:items-end"
-                >
-                  <input type="hidden" name="client_id" value={client.id} />
-                  <label className="space-y-1">
-                    <span className={labelClass}>Fecha</span>
-                    <input
-                      name="scheduled_date"
-                      type="date"
-                      defaultValue={today}
-                      className={inputClass}
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className={labelClass}>Hora</span>
-                    <input
-                      name="scheduled_time"
-                      type="time"
-                      defaultValue="09:00"
-                      className={inputClass}
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className={labelClass}>Tipo</span>
-                    <select
-                      name="appointment_type"
-                      defaultValue="Revision mensual"
-                      className={inputClass}
-                    >
-                      {appointmentTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1">
-                    <span className={labelClass}>Notas</span>
-                    <input
-                      name="notes"
-                      placeholder="Indicaciones, recordatorios..."
-                      className={inputClass}
-                    />
-                  </label>
-                  <SubmitButton
-                    className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                    pendingLabel="Guardando..."
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    Añadir
-                  </SubmitButton>
-                </form>
-              }
             />
-            <div className="grid gap-4">
+            <form action={addClientAppointment}>
+              <div className="grid gap-2 grid-cols-2">
+                <input type="hidden" name="client_id" value={client.id} />
+                <label className="space-y-1">
+                  <span className={labelClass}>Fecha</span>
+                  <input
+                    name="scheduled_date"
+                    type="date"
+                    defaultValue={today}
+                    required
+                    className={inputClass}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className={labelClass}>Hora</span>
+                  <input
+                    name="scheduled_time"
+                    type="time"
+                    defaultValue="09:00"
+                    required
+                    className={inputClass}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className={labelClass}>Duración</span>
+                  <select
+                    name="duration_minutes"
+                    defaultValue="60"
+                    className={inputClass}
+                  >
+                    <option value="30">30 min</option>
+                    <option value="45">45 min</option>
+                    <option value="60">1 hora</option>
+                    <option value="90">1 h 30 min</option>
+                    <option value="120">2 horas</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className={labelClass}>Tipo</span>
+                  <select
+                    name="appointment_type"
+                    defaultValue={appointmentTypes[0]}
+                    className={inputClass}
+                  >
+                    {appointmentTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 col-span-2">
+                  <span className={labelClass}>Notas</span>
+                  <input
+                    name="notes"
+                    placeholder="Indicaciones, recordatorios..."
+                    className={inputClass}
+                  />
+                </label>
+              </div>
+              <SubmitButton
+                className="block ml-auto mt-5 cursor-pointer rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                pendingLabel="Guardando..."
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Añadir
+              </SubmitButton>
+            </form>
+            <div className="grid gap-4 mt-5">
               <AppointmentList
                 title="Proximas citas"
                 appointments={upcomingAppointments}
@@ -2161,7 +2217,14 @@ export default async function ClientDetailPage({
                 {[
                   ["Paciente", client.name],
                   ["Edad", age !== null ? `${age} años` : "--"],
-                  ["Sexo", client.sex === "female" ? "Mujer" : client.sex === "male" ? "Hombre" : "--"],
+                  [
+                    "Sexo",
+                    client.sex === "female"
+                      ? "Mujer"
+                      : client.sex === "male"
+                        ? "Hombre"
+                        : "--",
+                  ],
 
                   [
                     "Peso",
@@ -2383,7 +2446,7 @@ export default async function ClientDetailPage({
               />
               <div className="flex justify-end">
                 <SubmitButton
-                  className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                   pendingLabel="Anadiendo..."
                 >
                   Añadir nota
@@ -2523,28 +2586,6 @@ export default async function ClientDetailPage({
                 </p>
               )}
             </div>
-          </section>
-        ) : null}
-
-        {activeTab === "danger" ? (
-          <section
-            id="danger"
-            className="rounded-lg border border-red-200 bg-white p-5 shadow-sm"
-          >
-            <SectionTitle
-              title="Zona de peligro"
-              description="Elimina este cliente, su plan, notas, citas y archivos guardados."
-            />
-            <form action={deleteNutritionClient}>
-              <input type="hidden" name="client_id" value={client.id} />
-              <SubmitButton
-                className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
-                pendingLabel="Eliminando..."
-                icon="trash"
-              >
-                Eliminar cliente
-              </SubmitButton>
-            </form>
           </section>
         ) : null}
       </div>

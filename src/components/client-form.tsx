@@ -1,5 +1,6 @@
 import type { Client } from "@/lib/database.types";
 import { SubmitButton } from "@/components/submit-button";
+import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 
 type ClientFormProps = {
   action: (formData: FormData) => Promise<void>;
@@ -9,7 +10,7 @@ type ClientFormProps = {
 
 export function ClientForm({ action, client, submitLabel }: ClientFormProps) {
   return (
-    <form action={action} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <form action={action} className="clinical-card p-5 sm:p-6">
       {client ? <input type="hidden" name="client_id" value={client.id} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -22,6 +23,25 @@ export function ClientForm({ action, client, submitLabel }: ClientFormProps) {
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
             placeholder="Nombre del cliente"
           />
+        </label>
+
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium text-slate-700">Estado</span>
+          <select
+            name="status"
+            required
+            defaultValue={client?.status ?? "active"}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+          >
+            {CLIENT_STATUS_OPTIONS.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
+          <span className="block text-xs leading-5 text-slate-400">
+            Los clientes inactivos conservan todo su historial.
+          </span>
         </label>
 
         <label className="space-y-1.5">
@@ -158,7 +178,7 @@ export function ClientForm({ action, client, submitLabel }: ClientFormProps) {
 
       <div className="mt-5 flex justify-end">
         <SubmitButton
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+          className="clinical-button-primary"
           pendingLabel="Guardando..."
           icon="save"
         >

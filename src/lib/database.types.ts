@@ -14,6 +14,7 @@ export type Database = {
           id: string;
           user_id: string;
           name: string;
+          status: ClientStatus;
           email: string | null;
           phone: string | null;
           sex: ClientSex | null;
@@ -32,6 +33,7 @@ export type Database = {
           id?: string;
           user_id: string;
           name: string;
+          status?: ClientStatus;
           email?: string | null;
           phone?: string | null;
           sex?: ClientSex | null;
@@ -50,6 +52,7 @@ export type Database = {
           id?: string;
           user_id?: string;
           name?: string;
+          status?: ClientStatus;
           email?: string | null;
           phone?: string | null;
           sex?: ClientSex | null;
@@ -305,6 +308,7 @@ export type Database = {
           client_id: string;
           scheduled_date: string;
           scheduled_time: string | null;
+          duration_minutes: number;
           appointment_type: string;
           notes: string | null;
           completed: boolean;
@@ -317,6 +321,7 @@ export type Database = {
           client_id: string;
           scheduled_date: string;
           scheduled_time?: string | null;
+          duration_minutes?: number;
           appointment_type?: string;
           notes?: string | null;
           completed?: boolean;
@@ -329,6 +334,7 @@ export type Database = {
           client_id?: string;
           scheduled_date?: string;
           scheduled_time?: string | null;
+          duration_minutes?: number;
           appointment_type?: string;
           notes?: string | null;
           completed?: boolean;
@@ -354,6 +360,8 @@ export type Database = {
 };
 
 export type ClientSex = "female" | "male";
+
+export type ClientStatus = "active" | "paused" | "inactive";
 
 export type AnthropometryRace = "caucasian" | "black" | "asian";
 
