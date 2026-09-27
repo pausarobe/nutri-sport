@@ -1,4 +1,5 @@
 import { LockKeyhole, Mail } from "lucide-react";
+import Image from "next/image";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { signIn } from "./actions";
@@ -27,9 +28,19 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <div className="relative w-full max-w-md">
         <div className="mb-7 flex flex-col items-center text-center">
-          <h1 className="mt-4 text-[32px] font-extrabold tracking-[-0.035em] text-[#003626]">
-            NutriSport Pro
-          </h1>
+          <div className="flex items-center justify-center gap-3">
+            <Image
+              src="/logo.svg"
+              alt=""
+              width={56}
+              height={56}
+              className="h-14 w-14 shrink-0"
+              priority
+            />
+            <h1 className="text-[32px] font-extrabold tracking-[-0.035em] text-[#003626]">
+              NutriSport Pro
+            </h1>
+          </div>
           <p className="mt-1 text-sm font-bold uppercase tracking-[0.08em] text-emerald-700">
             Client nutrition
           </p>
@@ -97,8 +108,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </SubmitButton>
 
             <p className="text-center text-xs leading-5 text-slate-400">
-              Acceso privado. Las cuentas las gestiona el administrador de la
-              aplicación.
+              Acceso privado.
             </p>
           </form>
         </section>
