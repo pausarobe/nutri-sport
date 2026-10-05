@@ -107,7 +107,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       </div>
 
       <section
-        className="mb-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
+        className="mb-7 grid gap-4 grid-cols-2 lg:grid-cols-5"
         aria-label="Métricas de clientes"
       >
         <ClientsMetric

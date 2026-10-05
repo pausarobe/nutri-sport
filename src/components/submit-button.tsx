@@ -18,6 +18,7 @@ type SubmitButtonProps = {
   ariaLabel?: string;
   name?: string;
   value?: string;
+  disabled?: boolean;
 };
 
 export function SubmitButton({
@@ -28,6 +29,7 @@ export function SubmitButton({
   ariaLabel,
   name,
   value,
+  disabled = false,
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();
   const Icon = icon ? icons[icon] : null;
@@ -37,7 +39,7 @@ export function SubmitButton({
     <button
       type="submit"
       className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
-      disabled={pending}
+      disabled={pending || disabled}
       aria-label={ariaLabel}
       aria-busy={pending}
       name={name}

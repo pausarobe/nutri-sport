@@ -8,11 +8,17 @@ import { SubmitButton } from "@/components/submit-button";
 type DeleteClientButtonProps = {
   clientId: string;
   clientName: string;
+  onDialogClose?: () => void;
+  triggerClassName?: string;
+  triggerRole?: "menuitem";
 };
 
 export function DeleteClientButton({
   clientId,
   clientName,
+  onDialogClose,
+  triggerClassName,
+  triggerRole,
 }: DeleteClientButtonProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -20,8 +26,12 @@ export function DeleteClientButton({
     <>
       <button
         type="button"
+        role={triggerRole}
         onClick={() => dialogRef.current?.showModal()}
-        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+        className={
+          triggerClassName ??
+          "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs text-red-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+        }
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
         Eliminar cliente
@@ -29,6 +39,7 @@ export function DeleteClientButton({
 
       <dialog
         ref={dialogRef}
+        onClose={onDialogClose}
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             dialogRef.current?.close();

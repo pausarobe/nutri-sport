@@ -62,6 +62,7 @@ import {
   uploadClientFile,
 } from "../actions";
 import { AnthropometryModal } from "@/components/anthropometry-modal";
+import { ClientAvatarMenu } from "@/components/client-avatar-menu";
 
 type ClientDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -384,18 +385,6 @@ function WeightChart({ points }: { points: WeightPoint[] }) {
             stroke={trend}
             strokeWidth={index === coords.length - 1 ? 0 : 1.5}
           />
-          {index === coords.length - 1 || points.length <= 8 ? (
-            <text
-              x={x}
-              y={y - 9}
-              textAnchor="middle"
-              fill={index === coords.length - 1 ? trend : "#8fa0b8"}
-              fontSize="9.5"
-              fontWeight={index === coords.length - 1 ? "700" : "400"}
-            >
-              {values[index].toFixed(1)}
-            </text>
-          ) : null}
         </g>
       ))}
       {points.length === 1 ? (
@@ -1158,7 +1147,7 @@ export default async function ClientDetailPage({
 
   return (
     <>
-      <div className="mb-4 print:hidden">
+      <div className="mb-4 hidden sm:block print:hidden">
         <Link
           href="/clients"
           className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:text-[#003626]"
@@ -1168,16 +1157,21 @@ export default async function ClientDetailPage({
         </Link>
       </div>
 
-      <section className="relative mb-5 overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-r from-white via-white to-emerald-50 p-5 shadow-[0_1px_3px_rgba(11,79,58,0.03),0_10px_28px_rgba(15,23,42,0.03)] sm:p-6 print:hidden">
-        <div
-          className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-emerald-200/25 blur-3xl"
-          aria-hidden="true"
-        />
+      <section className="relative mb-5 rounded-3xl border border-emerald-100 bg-gradient-to-r from-white via-white to-emerald-50 p-5 shadow-[0_1px_3px_rgba(11,79,58,0.03),0_10px_28px_rgba(15,23,42,0.03)] sm:overflow-hidden sm:p-6 print:hidden">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] sm:contents">
+          <div
+            className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-emerald-200/25 blur-3xl"
+            aria-hidden="true"
+          />
+        </div>
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg font-bold text-[#0b4f3a] ring-2 ring-emerald-400 ring-offset-2 ring-offset-white">
-              {initials(client.name)}
-            </div>
+            <ClientAvatarMenu
+              clientId={client.id}
+              clientName={client.name}
+              clientInitials={initials(client.name)}
+              showDelete={activeTab === "ficha"}
+            />
             <div className="min-w-0">
               <h1 className="truncate text-[26px] font-bold leading-8 tracking-[-0.03em] text-[#131b2e] sm:text-[32px] sm:leading-10">
                 {client.name}
@@ -1202,7 +1196,7 @@ export default async function ClientDetailPage({
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 flex-col gap-2">
+          <div className="hidden shrink-0 flex-col gap-2 sm:flex">
             <Link
               href={`/clients/${client.id}/edit`}
               className="clinical-button-secondary"
@@ -1271,7 +1265,7 @@ export default async function ClientDetailPage({
               description="Datos personales y resumen actual del cliente."
             />
             <div className="space-y-5">
-              <div className="grid gap-3 sm:grid-cols-5 xl:grid-cols-5">
+              <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
                 <MiniStat
                   label="Edad"
                   value={age !== null ? `${age} años` : "--"}
@@ -1496,7 +1490,7 @@ export default async function ClientDetailPage({
                 <div className="mb-5 rounded-lg border border-slate-200 bg-white p-3">
                   <WeightChart points={weightPoints} />
                 </div>
-                <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="mb-5 grid gap-3 grid-cols-2 lg:grid-cols-5">
                   <MiniStat
                     label="Actual"
                     value={numberLabel(calculationWeight, "kg")}

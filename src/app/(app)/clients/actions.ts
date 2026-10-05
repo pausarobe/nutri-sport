@@ -304,12 +304,62 @@ export async function deleteNutritionClient(formData: FormData) {
 export async function savePlan(formData: FormData) {
   const { supabase, userId } = await getAuthedSupabase();
   const clientId = formString(formData, "client_id");
-  const content = formString(formData, "content");
-  const settings = energySettingsPayload(formData);
-  const requestedContextKey = formString(formData, "apply_context_key");
   const saveMode = formString(formData, "save_mode");
 
   if (!clientId) redirect("/clients");
+
+  if (saveMode === "manual") {
+    const content = formString(formData, "content");
+    const manualCalories = positiveFormNumber(formData, "manual_calories");
+    const manualProtein = nonNegativeFormNumber(formData, "manual_protein_g");
+    const manualCarbs = nonNegativeFormNumber(formData, "manual_carbs_g");
+    const manualFat = nonNegativeFormNumber(formData, "manual_fat_g");
+
+    if (
+      !manualCalories ||
+      manualProtein === null ||
+      manualCarbs === null ||
+      manualFat === null
+    ) {
+      redirectWithMessage(
+        clientTabPath(clientId, "plan"),
+        "error",
+        "Completa los cuatro valores del ajuste manual.",
+      );
+    }
+
+    const { error } = await supabase.from("plans").upsert(
+      {
+        user_id: userId,
+        client_id: clientId,
+        content,
+        calories: Math.round(manualCalories),
+        protein_g: manualProtein,
+        carbs_g: manualCarbs,
+        fat_g: manualFat,
+      },
+      { onConflict: "client_id" },
+    );
+
+    if (error) {
+      redirectWithMessage(
+        clientTabPath(clientId, "plan"),
+        "error",
+        databaseSetupMessage(error.message),
+      );
+    }
+
+    revalidatePath(`/clients/${clientId}`);
+    redirectWithMessage(
+      clientTabPath(clientId, "plan"),
+      "success",
+      "Ajustes manuales guardados.",
+    );
+  }
+
+  const content = formString(formData, "content");
+  const settings = energySettingsPayload(formData);
+  const requestedContextKey = formString(formData, "apply_context_key");
 
   const [clientMetricsResult, latestWeightResult] = await Promise.all([
     supabase
@@ -375,11 +425,23 @@ export async function savePlan(formData: FormData) {
 
   const macroTotal =
     activeContext.proteinPct + activeContext.carbsPct + activeContext.fatPct;
-  if (saveMode !== "manual" && Math.abs(macroTotal - 100) > 0.11) {
+  if (Math.abs(macroTotal - 100) > 0.11) {
     redirectWithMessage(
       clientTabPath(clientId, "plan"),
       "error",
       `Los macronutrientes de ${activeContext.label} deben sumar 100%.`,
+    );
+  }
+
+  const mealTotal = activeContext.meals.reduce(
+    (total, meal) => total + meal.pct,
+    0,
+  );
+  if (Math.abs(mealTotal - 100) > 0.11) {
+    redirectWithMessage(
+      clientTabPath(clientId, "plan"),
+      "error",
+      `La distribución de comidas de ${activeContext.label} debe sumar 100%.`,
     );
   }
 
@@ -400,25 +462,6 @@ export async function savePlan(formData: FormData) {
   const automaticFat = Math.round(
     (automaticCalories * activeContext.fatPct) / 100 / 9,
   );
-  const manualCalories = positiveFormNumber(formData, "manual_calories");
-  const manualProtein = nonNegativeFormNumber(formData, "manual_protein_g");
-  const manualCarbs = nonNegativeFormNumber(formData, "manual_carbs_g");
-  const manualFat = nonNegativeFormNumber(formData, "manual_fat_g");
-
-  if (
-    saveMode === "manual" &&
-    (!manualCalories ||
-      manualProtein === null ||
-      manualCarbs === null ||
-      manualFat === null)
-  ) {
-    redirectWithMessage(
-      clientTabPath(clientId, "plan"),
-      "error",
-      "Completa los cuatro valores del ajuste manual.",
-    );
-  }
-
   const calculationDescription =
     activeContext.key === "rest"
       ? `Día de descanso: GET ${referenceCalories} kcal; objetivo ${automaticCalories} kcal.`
@@ -433,14 +476,10 @@ export async function savePlan(formData: FormData) {
       user_id: userId,
       client_id: clientId,
       content,
-      calories:
-        saveMode === "manual"
-          ? Math.round(manualCalories ?? automaticCalories)
-          : automaticCalories,
-      protein_g:
-        saveMode === "manual" ? (manualProtein ?? 0) : automaticProtein,
-      carbs_g: saveMode === "manual" ? (manualCarbs ?? 0) : automaticCarbs,
-      fat_g: saveMode === "manual" ? (manualFat ?? 0) : automaticFat,
+      calories: automaticCalories,
+      protein_g: automaticProtein,
+      carbs_g: automaticCarbs,
+      fat_g: automaticFat,
       energy_settings: savedSettings,
       meal_distribution: activeContext.meals,
     },
@@ -459,9 +498,7 @@ export async function savePlan(formData: FormData) {
   redirectWithMessage(
     clientTabPath(clientId, "plan"),
     "success",
-    saveMode === "manual"
-      ? "Ajustes manuales guardados."
-      : `${activeContext.label} aplicado como plan activo.`,
+    `${activeContext.label} aplicado como plan activo.`,
   );
 }
 

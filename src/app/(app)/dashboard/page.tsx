@@ -172,7 +172,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 grid-cols-[auto_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[auto_minmax(0,1fr)]">
         <section
           className="grid gap-4 grid-cols-1"
           aria-label="Indicadores de la consulta"

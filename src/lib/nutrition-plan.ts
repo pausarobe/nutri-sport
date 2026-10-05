@@ -43,6 +43,9 @@ export type EnergySettings = {
   version: 2;
   method: "cunningham" | "harris";
   leanMassKg: number | null;
+  harrisWeightKg: number | null;
+  harrisHeightCm: number | null;
+  harrisAge: number | null;
   activityLevel: ActivityFactorLevel;
   activityFactor: number;
   thermalEffect: number;
@@ -113,6 +116,9 @@ export const DEFAULT_ENERGY_SETTINGS: EnergySettings = {
   version: 2,
   method: "cunningham",
   leanMassKg: null,
+  harrisWeightKg: null,
+  harrisHeightCm: null,
+  harrisAge: null,
   activityLevel: "light",
   activityFactor: 1.6,
   thermalEffect: 0.1,
@@ -355,6 +361,9 @@ export function energySettingsFromJson(value: Json | null | undefined): EnergySe
     version: 2,
     method,
     leanMassKg: numberFromJson(source.leanMassKg, null),
+    harrisWeightKg: numberFromJson(source.harrisWeightKg, null),
+    harrisHeightCm: numberFromJson(source.harrisHeightCm, null),
+    harrisAge: numberFromJson(source.harrisAge, null),
     activityLevel,
     activityFactor: storedActivityFactor,
     thermalEffect: normalizeThermalEffect(numberFromJson(source.thermalEffect, 0.1)),
@@ -385,9 +394,25 @@ export function calculateEnergyPlan({
   age: number | null | undefined;
   sex: ClientSex | null | undefined;
 }) {
-  const weight = weightKg && weightKg > 0 ? weightKg : 70;
-  const height = heightCm && heightCm > 0 ? heightCm : 170;
-  const years = age && age > 0 ? age : 25;
+  const referenceWeight = weightKg && weightKg > 0 ? weightKg : 70;
+  const referenceHeight = heightCm && heightCm > 0 ? heightCm : 170;
+  const referenceAge = age && age > 0 ? age : 25;
+  const weight =
+    settings.method === "harris" &&
+    settings.harrisWeightKg &&
+    settings.harrisWeightKg > 0
+      ? settings.harrisWeightKg
+      : referenceWeight;
+  const height =
+    settings.method === "harris" &&
+    settings.harrisHeightCm &&
+    settings.harrisHeightCm > 0
+      ? settings.harrisHeightCm
+      : referenceHeight;
+  const years =
+    settings.method === "harris" && settings.harrisAge && settings.harrisAge > 0
+      ? settings.harrisAge
+      : referenceAge;
   const leanMass =
     settings.leanMassKg && settings.leanMassKg > 0
       ? settings.leanMassKg
