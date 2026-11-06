@@ -966,7 +966,7 @@ export async function addClientNote(formData: FormData) {
     redirectWithMessage(
       clientTabPath(clientId, "notas"),
       "error",
-      "Note cannot be empty.",
+      "La nota no puede estar vacía.",
     );
   }
 
@@ -989,7 +989,46 @@ export async function addClientNote(formData: FormData) {
   redirectWithMessage(
     clientTabPath(clientId, "notas"),
     "success",
-    "Note added.",
+    "Nota añadida.",
+  );
+}
+
+export async function updateClientNote(formData: FormData) {
+  const { supabase } = await getAuthedSupabase();
+  const clientId = formString(formData, "client_id");
+  const noteId = formString(formData, "note_id");
+  const content = formString(formData, "content");
+  const type = noteType(formData);
+
+  if (!clientId || !noteId) redirect("/clients");
+
+  if (!content) {
+    redirectWithMessage(
+      clientTabPath(clientId, "notas"),
+      "error",
+      "La nota no puede estar vacía.",
+    );
+  }
+
+  const { error } = await supabase
+    .from("client_notes")
+    .update({ content, note_type: type })
+    .eq("id", noteId)
+    .eq("client_id", clientId);
+
+  if (error) {
+    redirectWithMessage(
+      clientTabPath(clientId, "notas"),
+      "error",
+      databaseSetupMessage(error.message),
+    );
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  redirectWithMessage(
+    clientTabPath(clientId, "notas"),
+    "success",
+    "Nota actualizada.",
   );
 }
 
@@ -1017,7 +1056,7 @@ export async function deleteClientNote(formData: FormData) {
   redirectWithMessage(
     clientTabPath(clientId, "notas"),
     "success",
-    "Note deleted.",
+    "Nota eliminada.",
   );
 }
 

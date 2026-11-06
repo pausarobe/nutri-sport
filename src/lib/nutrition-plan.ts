@@ -16,12 +16,16 @@ export type WeekDayId =
   | "saturday"
   | "sunday";
 
-export type TrainingDay = {
-  day: WeekDayId;
-  mode: "rest" | "training";
+export type TrainingSession = {
+  id: string;
   name: string;
   mets: number | null;
   durationMin: number | null;
+};
+
+export type TrainingDay = {
+  day: WeekDayId;
+  sessions: TrainingSession[];
 };
 
 export type MealDistribution = {
@@ -40,7 +44,7 @@ export type NutritionContextSettings = {
 };
 
 export type EnergySettings = {
-  version: 2;
+  version: 3;
   method: "cunningham" | "harris";
   leanMassKg: number | null;
   harrisWeightKg: number | null;
@@ -57,6 +61,7 @@ export type EnergySettings = {
 };
 
 export type EnergyDayResult = TrainingDay & {
+  sessionResults: Array<TrainingSession & { netExercise: number }>;
   netExercise: number;
   total: number;
   increment: number;
@@ -96,10 +101,7 @@ export const ACTIVITY_FACTOR_OPTIONS: ReadonlyArray<{
 
 const DEFAULT_WEEK: TrainingDay[] = WEEK_DAYS.map(({ id }) => ({
   day: id,
-  mode: "rest",
-  name: "",
-  mets: null,
-  durationMin: null,
+  sessions: [],
 }));
 
 const DEFAULT_REST_CONTEXT: NutritionContextSettings = {
@@ -113,7 +115,7 @@ const DEFAULT_REST_CONTEXT: NutritionContextSettings = {
 };
 
 export const DEFAULT_ENERGY_SETTINGS: EnergySettings = {
-  version: 2,
+  version: 3,
   method: "cunningham",
   leanMassKg: null,
   harrisWeightKg: null,
@@ -240,12 +242,40 @@ function weekFromJson(source: Record<string, Json | undefined>): TrainingDay[] {
       if (!row || typeof row !== "object" || Array.isArray(row)) continue;
       const day = WEEK_DAYS.find((candidate) => candidate.id === row.day)?.id;
       if (!day) continue;
+
+      const sessions: TrainingSession[] = Array.isArray(row.sessions)
+        ? row.sessions
+            .map((session, index) => {
+              if (
+                !session ||
+                typeof session !== "object" ||
+                Array.isArray(session)
+              ) {
+                return null;
+              }
+
+              return {
+                id: stringFromJson(session.id, `${day}-${index + 1}`),
+                name: stringFromJson(session.name),
+                mets: numberFromJson(session.mets, null),
+                durationMin: numberFromJson(session.durationMin, null),
+              };
+            })
+            .filter((session): session is TrainingSession => Boolean(session))
+        : row.mode === "training"
+          ? [
+              {
+                id: `${day}-1`,
+                name: stringFromJson(row.name),
+                mets: numberFromJson(row.mets, null),
+                durationMin: numberFromJson(row.durationMin, null),
+              },
+            ]
+          : [];
+
       byDay.set(day, {
         day,
-        mode: row.mode === "training" ? "training" : "rest",
-        name: stringFromJson(row.name),
-        mets: numberFromJson(row.mets, null),
-        durationMin: numberFromJson(row.durationMin, null),
+        sessions,
       });
     }
     if (byDay.size) {
@@ -278,10 +308,14 @@ function weekFromJson(source: Record<string, Json | undefined>): TrainingDay[] {
     for (let index = 0; index < days; index += 1) {
       week[cursor] = {
         ...week[cursor],
-        mode: "training",
-        name: `Entrenamiento ${sessionIndex + 1}`,
-        mets: numberFromJson(row.mets, null),
-        durationMin: numberFromJson(row.durationMin, null),
+        sessions: [
+          {
+            id: `${week[cursor].day}-1`,
+            name: `Entrenamiento ${sessionIndex + 1}`,
+            mets: numberFromJson(row.mets, null),
+            durationMin: numberFromJson(row.durationMin, null),
+          },
+        ],
       };
       cursor += 1;
     }
@@ -328,10 +362,13 @@ function contextsFromJson(
     { key: "rest", label: "Día de descanso" },
   ];
   for (const day of week) {
-    if (day.mode !== "training") continue;
-    const label = day.name.trim() || "Entrenamiento";
-    const key = trainingContextKey(label);
-    if (!required.some((row) => row.key === key)) required.push({ key, label });
+    for (const session of day.sessions) {
+      const label = session.name.trim() || "Entrenamiento";
+      const key = trainingContextKey(label);
+      if (!required.some((row) => row.key === key)) {
+        required.push({ key, label });
+      }
+    }
   }
 
   return required.map(({ key, label }) => {
@@ -358,7 +395,7 @@ export function energySettingsFromJson(value: Json | null | undefined): EnergySe
   const requestedActive = stringFromJson(source.activeContextKey, "rest");
 
   return {
-    version: 2,
+    version: 3,
     method,
     leanMassKg: numberFromJson(source.leanMassKg, null),
     harrisWeightKg: numberFromJson(source.harrisWeightKg, null),
@@ -429,14 +466,27 @@ export function calculateEnergyPlan({
   const divisor = Math.max(0.5, 1 - thermalEffect);
   const restTotal = baseBeforeThermal / divisor;
   const days: EnergyDayResult[] = settings.week.map((day) => {
-    const mets = day.mode === "training" ? day.mets ?? 0 : 0;
-    const durationMin = day.mode === "training" ? day.durationMin ?? 0 : 0;
-    const netExercise =
-      mets > 1 && durationMin > 0
-        ? (mets - 1) * weight * (durationMin / 60)
-        : 0;
+    const sessionResults = day.sessions.map((session) => {
+      const mets = session.mets ?? 0;
+      const durationMin = session.durationMin ?? 0;
+      const netExercise =
+        mets > 1 && durationMin > 0
+          ? (mets - 1) * weight * (durationMin / 60)
+          : 0;
+      return { ...session, netExercise };
+    });
+    const netExercise = sessionResults.reduce(
+      (total, session) => total + session.netExercise,
+      0,
+    );
     const total = (baseBeforeThermal + netExercise) / divisor;
-    return { ...day, netExercise, total, increment: total - restTotal };
+    return {
+      ...day,
+      sessionResults,
+      netExercise,
+      total,
+      increment: total - restTotal,
+    };
   });
   const averageExercise =
     days.reduce((sum, day) => sum + day.netExercise, 0) / 7;
@@ -451,8 +501,11 @@ export function calculateEnergyPlan({
       : (() => {
           const matching = days.filter(
             (day) =>
-              day.mode === "training" &&
-              trainingContextKey(day.name || "Entrenamiento") === activeContext.key,
+              day.sessions.some(
+                (session) =>
+                  trainingContextKey(session.name || "Entrenamiento") ===
+                  activeContext.key,
+              ),
           );
           return matching.length
             ? matching.reduce((sum, day) => sum + day.total, 0) / matching.length
@@ -498,8 +551,10 @@ export function contextReference(
   if (key === "rest") return energy.restTotal;
   const matching = energy.days.filter(
     (day) =>
-      day.mode === "training" &&
-      trainingContextKey(day.name || "Entrenamiento") === key,
+      day.sessions.some(
+        (session) =>
+          trainingContextKey(session.name || "Entrenamiento") === key,
+      ),
   );
   return matching.length
     ? matching.reduce((sum, day) => sum + day.total, 0) / matching.length

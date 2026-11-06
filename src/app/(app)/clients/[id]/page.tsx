@@ -58,6 +58,7 @@ import {
   deleteClientNote,
   deleteClientWeight,
   reopenClientAppointment,
+  updateClientNote,
   updateClientWeight,
   uploadClientFile,
 } from "../actions";
@@ -1655,19 +1656,13 @@ export default async function ClientDetailPage({
           <section id="plan" className={cardClass}>
             <SectionTitle
               title="Plan nutricional"
-              description="Calculadora energetica, macros y notas del plan actual."
+              description="Calculadora energetica, entrenamientos y macros del plan actual."
             />
             <NutritionPlanForm
               clientId={client.id}
               content={plan?.content ?? ""}
               settings={planSettings}
               meals={mealDistribution}
-              activePlan={{
-                calories: plan?.calories ?? null,
-                proteinG: plan?.protein_g ?? null,
-                carbsG: plan?.carbs_g ?? null,
-                fatG: plan?.fat_g ?? null,
-              }}
               reference={{
                 weightKg: calculationWeight,
                 heightCm: calculationHeight,
@@ -2491,6 +2486,53 @@ export default async function ClientDetailPage({
                           />
                         </form>
                       </div>
+                      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-slate-600 transition hover:text-emerald-800">
+                          <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                          Editar nota
+                        </summary>
+                        <form
+                          action={updateClientNote}
+                          className="mt-3 space-y-3 border-t border-slate-200 pt-3"
+                        >
+                          <input
+                            type="hidden"
+                            name="client_id"
+                            value={client.id}
+                          />
+                          <input type="hidden" name="note_id" value={note.id} />
+                          <label className="block max-w-xs space-y-1">
+                            <span className={labelClass}>Tipo de nota</span>
+                            <select
+                              name="note_type"
+                              defaultValue={note.note_type ?? "normal"}
+                              className={inputClass}
+                            >
+                              <option value="normal">Normal</option>
+                              <option value="supplement">Suplemento</option>
+                            </select>
+                          </label>
+                          <label className="block space-y-1">
+                            <span className={labelClass}>Contenido</span>
+                            <textarea
+                              name="content"
+                              rows={4}
+                              required
+                              defaultValue={note.content}
+                              className="min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+                            />
+                          </label>
+                          <div className="flex justify-end">
+                            <SubmitButton
+                              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                              pendingLabel="Guardando..."
+                              icon="save"
+                            >
+                              Guardar cambios
+                            </SubmitButton>
+                          </div>
+                        </form>
+                      </details>
                     </article>
                   );
                 })

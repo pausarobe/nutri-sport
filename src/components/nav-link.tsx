@@ -2,12 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutDashboard, Users } from "lucide-react";
+import {
+  CalendarDays,
+  LayoutDashboard,
+  Users,
+  HandCoins,
+  CircleFadingArrowUp,
+} from "lucide-react";
 
 const icons = {
   dashboard: LayoutDashboard,
   clients: Users,
   appointments: CalendarDays,
+  bono: HandCoins,
+  plan: CircleFadingArrowUp,
 };
 
 type NavLinkProps = {

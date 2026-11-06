@@ -65,6 +65,8 @@ export function AppShell({ children, userEmail }: AppShellProps) {
           <NavLink href="/dashboard" label="Dashboard" icon="dashboard" />
           <NavLink href="/clients" label="Clientes" icon="clients" />
           <NavLink href="/appointments" label="Citas" icon="appointments" />
+          <NavLink href="/" label="Bonos" icon="bono" />
+          <NavLink href="/" label="Planes" icon="plan" />
         </nav>
 
         <div className="mt-auto hidden p-3 lg:block">

@@ -1,7 +1,7 @@
 "use client";
 
-import { RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Plus, RotateCcw, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { savePlan } from "@/app/(app)/clients/actions";
 import { SubmitButton } from "@/components/submit-button";
 import type { ClientSex } from "@/lib/database.types";
@@ -18,6 +18,7 @@ import {
   type MealDistribution,
   type NutritionContextSettings,
   type TrainingDay,
+  type TrainingSession,
 } from "@/lib/nutrition-plan";
 
 type NutritionPlanFormProps = {
@@ -25,12 +26,6 @@ type NutritionPlanFormProps = {
   content: string;
   settings: EnergySettings;
   meals: MealDistribution[];
-  activePlan: {
-    calories: number | null;
-    proteinG: number | null;
-    carbsG: number | null;
-    fatG: number | null;
-  };
   reference: {
     weightKg: number | null;
     heightCm: number | null;
@@ -90,10 +85,13 @@ function contextsForWeek(
     { key: "rest", label: "Día de descanso" },
   ];
   week.forEach((day) => {
-    if (day.mode !== "training") return;
-    const label = day.name.trim() || "Entrenamiento";
-    const key = trainingContextKey(label);
-    if (!required.some((row) => row.key === key)) required.push({ key, label });
+    day.sessions.forEach((session) => {
+      const label = session.name.trim() || "Entrenamiento";
+      const key = trainingContextKey(label);
+      if (!required.some((row) => row.key === key)) {
+        required.push({ key, label });
+      }
+    });
   });
   return required.map(({ key, label }) => {
     const stored = saved.find((context) => context.key === key);
@@ -116,17 +114,49 @@ function MacroField({
   gramsPerKg: number;
   onChange: (value: number) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setDraft(String(value));
+    }
+  }, [value]);
+
+  function updateDraft(nextValue: string) {
+    const withoutLeadingZeroes = nextValue.replace(/^0+(?=\d)/, "");
+    setDraft(withoutLeadingZeroes);
+    if (withoutLeadingZeroes === "") return;
+
+    const parsed = Number(withoutLeadingZeroes);
+    if (Number.isFinite(parsed)) {
+      onChange(Math.max(0, Math.min(100, parsed)));
+    }
+  }
+
+  function commitDraft() {
+    const parsed = Number(draft);
+    const normalized = Number.isFinite(parsed)
+      ? Math.max(0, Math.min(100, parsed))
+      : value;
+    setDraft(String(normalized));
+    onChange(normalized);
+  }
+
   return (
     <label className="rounded-lg border border-slate-200 bg-white p-3">
       <span className={labelClass}>{label}</span>
       <div className="mt-2 flex items-center gap-2">
         <input
+          ref={inputRef}
           type="number"
           min="0"
           max="100"
           step="1"
-          value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
+          value={draft}
+          onChange={(event) => updateDraft(event.target.value)}
+          onBlur={commitDraft}
+          onFocus={(event) => event.currentTarget.select()}
           className={inputClass}
         />
         <span className="text-sm text-slate-500">%</span>
@@ -143,7 +173,6 @@ export function NutritionPlanForm({
   content,
   settings,
   meals,
-  activePlan,
   reference,
 }: NutritionPlanFormProps) {
   const [method, setMethod] = useState(settings.method);
@@ -180,7 +209,7 @@ export function NutritionPlanForm({
   const activityFactor = activityFactorForSex(activityLevel, reference.sex);
   const currentSettings: EnergySettings = useMemo(
     () => ({
-      version: 2,
+      version: 3,
       method,
       leanMassKg: parsePositive(leanMassKg),
       harrisWeightKg: parsePositive(harrisWeightKg),
@@ -216,24 +245,83 @@ export function NutritionPlanForm({
     [currentSettings, reference],
   );
 
-  function updateDay(index: number, patch: Partial<TrainingDay>) {
+  function newSession(existing: TrainingSession[]): TrainingSession {
+    const names = new Set(existing.map((session) => session.name));
+    let sequence = 1;
+    while (
+      names.has(sequence === 1 ? "Entrenamiento" : `Entrenamiento ${sequence}`)
+    ) {
+      sequence += 1;
+    }
+
+    return {
+      id:
+        globalThis.crypto?.randomUUID?.() ??
+        `training-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: sequence === 1 ? "Entrenamiento" : `Entrenamiento ${sequence}`,
+      mets: null,
+      durationMin: null,
+    };
+  }
+
+  function setDayMode(index: number, mode: "rest" | "training") {
     setWeek((current) =>
       current.map((day, dayIndex) => {
         if (dayIndex !== index) return day;
-        if (patch.mode === "rest") {
-          return { ...day, ...patch, name: "", mets: null, durationMin: null };
-        }
-        if (patch.mode === "training" && day.mode === "rest") {
-          return {
-            ...day,
-            ...patch,
-            name: "Entrenamiento",
-            mets: null,
-            durationMin: null,
-          };
-        }
-        return { ...day, ...patch };
+        if (mode === "rest") return { ...day, sessions: [] };
+        if (day.sessions.length) return day;
+        return { ...day, sessions: [newSession([])] };
       }),
+    );
+  }
+
+  function addSession(index: number) {
+    setWeek((current) =>
+      current.map((day, dayIndex) =>
+        dayIndex === index
+          ? {
+              ...day,
+              sessions: [
+                ...day.sessions,
+                newSession(day.sessions),
+              ],
+            }
+          : day,
+      ),
+    );
+  }
+
+  function updateSession(
+    dayIndex: number,
+    sessionId: string,
+    patch: Partial<TrainingSession>,
+  ) {
+    setWeek((current) =>
+      current.map((day, index) =>
+        index === dayIndex
+          ? {
+              ...day,
+              sessions: day.sessions.map((session) =>
+                session.id === sessionId ? { ...session, ...patch } : session,
+              ),
+            }
+          : day,
+      ),
+    );
+  }
+
+  function removeSession(dayIndex: number, sessionId: string) {
+    setWeek((current) =>
+      current.map((day, index) =>
+        index === dayIndex
+          ? {
+              ...day,
+              sessions: day.sessions.filter(
+                (session) => session.id !== sessionId,
+              ),
+            }
+          : day,
+      ),
     );
   }
 
@@ -332,7 +420,8 @@ export function NutritionPlanForm({
                   <input
                     type="number"
                     min="0"
-                    step="1"
+                    step="any"
+                    inputMode="decimal"
                     value={leanMassKg}
                     onChange={(event) => setLeanMassKg(event.target.value)}
                     className={inputClass}
@@ -488,14 +577,14 @@ export function NutritionPlanForm({
                       {dayLabel}
                     </h4>
                     <select
-                      value={day.mode}
+                      value={day.sessions.length ? "training" : "rest"}
                       onChange={(event) =>
-                        updateDay(index, {
-                          mode:
-                            event.target.value === "training"
-                              ? "training"
-                              : "rest",
-                        })
+                        setDayMode(
+                          index,
+                          event.target.value === "training"
+                            ? "training"
+                            : "rest",
+                        )
                       }
                       className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
                     >
@@ -503,46 +592,83 @@ export function NutritionPlanForm({
                       <option value="training">Entrenamiento</option>
                     </select>
                   </div>
-                  {day.mode === "training" ? (
-                    <div className="mt-3 space-y-2">
-                      <input
-                        value={day.name}
-                        onChange={(event) =>
-                          updateDay(index, { name: event.target.value })
-                        }
-                        placeholder="Nombre de la sesión"
-                        className={inputClass}
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={numberValue(day.mets)}
-                          onChange={(event) =>
-                            updateDay(index, {
-                              mets: parsePositive(event.target.value),
-                            })
+                  {day.sessions.length ? (
+                    <div className="mt-3 space-y-3">
+                      {day.sessions.map((session, sessionIndex) => (
+                        <div
+                          key={session.id}
+                          className={
+                            sessionIndex === 0
+                              ? "space-y-2"
+                              : "space-y-2 border-t border-dashed border-slate-200 pt-3"
                           }
-                          placeholder="MET"
-                          className={inputClass}
-                        />
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={numberValue(day.durationMin)}
-                          onChange={(event) =>
-                            updateDay(index, {
-                              durationMin: parsePositive(event.target.value),
-                            })
-                          }
-                          placeholder="Minutos"
-                          className={inputClass}
-                        />
-                      </div>
-                      <div className="text-xs leading-5 text-slate-500">
-                        GET:{" "}
+                        >
+                          <div className="flex gap-2">
+                            <input
+                              value={session.name}
+                              onChange={(event) =>
+                                updateSession(index, session.id, {
+                                  name: event.target.value,
+                                })
+                              }
+                              placeholder="Nombre de la sesión"
+                              aria-label={`Nombre del entrenamiento ${sessionIndex + 1} de ${dayLabel}`}
+                              className={inputClass}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeSession(index, session.id)}
+                              className="inline-flex w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                              aria-label={`Eliminar entrenamiento ${sessionIndex + 1} de ${dayLabel}`}
+                            >
+                              <X className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              step="0.1"
+                              inputMode="decimal"
+                              value={numberValue(session.mets)}
+                              onChange={(event) =>
+                                updateSession(index, session.id, {
+                                  mets: parsePositive(event.target.value),
+                                })
+                              }
+                              placeholder="MET"
+                              aria-label={`MET del entrenamiento ${sessionIndex + 1} de ${dayLabel}`}
+                              className={inputClass}
+                            />
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={numberValue(session.durationMin)}
+                              onChange={(event) =>
+                                updateSession(index, session.id, {
+                                  durationMin: parsePositive(
+                                    event.target.value,
+                                  ),
+                                })
+                              }
+                              placeholder="Minutos"
+                              aria-label={`Minutos del entrenamiento ${sessionIndex + 1} de ${dayLabel}`}
+                              className={inputClass}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addSession(index)}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-300 px-2 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-500 hover:bg-emerald-50"
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                        Añadir entrenamiento
+                      </button>
+                      <div className="border-t border-slate-100 pt-2 text-xs leading-5 text-slate-500">
+                        GET del día:{" "}
                         <strong className="text-emerald-800">
                           {Math.round(result.total)} kcal
                         </strong>
@@ -810,61 +936,6 @@ export function NutritionPlanForm({
         </div>
       </form>
 
-      <div className="border-t border-slate-200 pt-4"></div>
-
-      <form action={savePlan}>
-        <input type="hidden" name="client_id" value={clientId} />
-        <input type="hidden" name="save_mode" value="manual" />
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <h3 className="text-sm font-semibold text-amber-950">
-            Ajustes manuales del plan
-          </h3>
-          <p className="mt-1 text-xs text-amber-800">
-            Sobrescriben el plan activo sin recalcular metabolismo, actividad,
-            TEF ni entrenamientos.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["manual_calories", "Calorías", activePlan.calories],
-              ["manual_protein_g", "Proteína (g)", activePlan.proteinG],
-              ["manual_carbs_g", "Hidratos (g)", activePlan.carbsG],
-              ["manual_fat_g", "Grasa (g)", activePlan.fatG],
-            ].map(([name, label, value]) => (
-              <label key={String(name)} className="space-y-1.5">
-                <span className={labelClass}>{label}</span>
-                <input
-                  name={String(name)}
-                  type="number"
-                  required
-                  min="0"
-                  step="1"
-                  defaultValue={value ?? ""}
-                  className={inputClass}
-                />
-              </label>
-            ))}
-          </div>
-          <label className="mt-4 block space-y-1.5">
-            <span className={labelClass}>Notas del plan</span>
-            <textarea
-              name="content"
-              rows={4}
-              defaultValue={content}
-              className={`${inputClass} min-h-24 leading-6`}
-              placeholder="Indicaciones, observaciones y ajustes del plan..."
-            />
-          </label>
-          <div className="mt-4 flex justify-end">
-            <SubmitButton
-              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
-              pendingLabel="Guardando..."
-              icon="save"
-            >
-              Guardar ajustes manuales
-            </SubmitButton>
-          </div>
-        </div>
-      </form>
     </div>
   );
 }

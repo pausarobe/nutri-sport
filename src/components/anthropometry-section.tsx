@@ -649,113 +649,245 @@ function Somatogram({
   points: Array<{ id: string; x: number; y: number; label?: string }>;
   selectedId: string;
 }) {
-  const width = 280;
-  const height = 280;
-  const left = width * 0.1;
-  const right = width * 0.1;
-  const top = height * 0.13;
-  const bottom = height * 0.12;
+  const width = 340;
+  const height = 340;
+  const left = 36;
+  const right = 22;
+  const top = 28;
+  const bottom = 34;
   const plotWidth = width - left - right;
   const plotHeight = height - top - bottom;
-  const toX = (value: number) => left + ((value + 9) / 18) * plotWidth;
-  const toY = (value: number) => top + ((9 - value) / 18) * plotHeight;
-  const meso = { x: width / 2, y: top + 10 };
-  const endo = { x: left, y: height - bottom - 8 };
-  const ecto = { x: width - right, y: height - bottom - 8 };
-  const outline = `M ${meso.x} ${meso.y} Q ${width * 0.22} ${height * 0.28} ${endo.x} ${endo.y} Q ${width * 0.5} ${height * 0.97} ${ecto.x} ${ecto.y} Q ${width * 0.78} ${height * 0.28} ${meso.x} ${meso.y}`;
+  const xTicks = [-8, -6, -4, -2, 0, 2, 4, 6, 8];
+  const yTicks = [-10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, 12, 14, 16];
+  const pointColors = [
+    "#0284c7",
+    "#c2410c",
+    "#7c3aed",
+    "#0f766e",
+    "#be123c",
+    "#a16207",
+  ];
+  const toX = (value: number) => left + ((value + 8) / 16) * plotWidth;
+  const toY = (value: number) => top + ((16 - value) / 26) * plotHeight;
+  const meso = { x: toX(0), y: toY(12) };
+  const endo = { x: toX(-6), y: toY(-6) };
+  const ecto = { x: toX(6), y: toY(-6) };
+  const origin = { x: toX(0), y: toY(0) };
+  const outline = `M ${meso.x} ${meso.y} Q ${toX(-8)} ${toY(5)} ${endo.x} ${endo.y} Q ${toX(0)} ${toY(-9)} ${ecto.x} ${ecto.y} Q ${toX(8)} ${toY(5)} ${meso.x} ${meso.y}`;
+  const plottedPoints = points.map((point, index, allPoints) => {
+    const baseX = toX(point.x);
+    const baseY = toY(point.y);
+    const nearbyBefore = allPoints.slice(0, index).filter((candidate) => {
+      const dx = toX(candidate.x) - baseX;
+      const dy = toY(candidate.y) - baseY;
+      return Math.hypot(dx, dy) < 10;
+    }).length;
+    const angle = -Math.PI / 2 + (nearbyBefore * Math.PI) / 3;
+    const offset = nearbyBefore ? 5 + Math.floor(nearbyBefore / 6) * 4 : 0;
+
+    return {
+      ...point,
+      px: baseX + Math.cos(angle) * offset,
+      py: baseY + Math.sin(angle) * offset,
+      color:
+        point.id === selectedId
+          ? "#064e3b"
+          : pointColors[index % pointColors.length],
+    };
+  });
+
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="mx-auto w-full max-w-[280px]"
-      aria-label="Somatograma"
-    >
-      <rect width={width} height={height} fill="#fff" />
-      <path
-        d={outline}
-        fill="none"
-        stroke="#94a3b8"
-        strokeWidth="2"
-        strokeDasharray="6 4"
-      />
-      <line
-        x1={meso.x}
-        y1={meso.y}
-        x2={width / 2}
-        y2={endo.y + 12}
-        stroke="#94a3b8"
-        strokeWidth="1.2"
-        strokeDasharray="3 2"
-      />
-      <line
-        x1={width * 0.18}
-        y1={height * 0.43}
-        x2={ecto.x}
-        y2={ecto.y}
-        stroke="#94a3b8"
-        strokeWidth="1.2"
-        strokeDasharray="3 2"
-      />
-      <line
-        x1={width * 0.82}
-        y1={height * 0.43}
-        x2={endo.x}
-        y2={endo.y}
-        stroke="#94a3b8"
-        strokeWidth="1.2"
-        strokeDasharray="3 2"
-      />
-      <text x={meso.x - 27} y="22" fontSize="9" fill="#334155">
-        MESOMORFO
-      </text>
-      <text x={endo.x - 16} y={height - 5} fontSize="9" fill="#334155">
-        ENDOMORFO
-      </text>
-      <text x={ecto.x - 35} y={height - 5} fontSize="9" fill="#334155">
-        ECTOMORFO
-      </text>
-      {points.map((point, index) => {
-        if (index === 0) return null;
-        return (
+    <div className="mx-auto w-full max-w-[400px]">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full"
+        role="img"
+        aria-label="Somatograma Heath-Carter, eje X de menos 8 a 8 y eje Y de menos 10 a 16"
+      >
+        <rect width={width} height={height} fill="#fff" />
+        {xTicks.map((tick) => (
           <line
-            key={`${point.id}-line`}
-            x1={toX(points[index - 1].x)}
-            y1={toY(points[index - 1].y)}
-            x2={toX(point.x)}
-            y2={toY(point.y)}
-            stroke="#94a3b8"
-            strokeWidth="1.2"
-            strokeDasharray="3 2"
+            key={`x-grid-${tick}`}
+            x1={toX(tick)}
+            y1={top}
+            x2={toX(tick)}
+            y2={height - bottom}
+            stroke={tick === 0 ? "#94a3b8" : "#e2e8f0"}
+            strokeWidth={tick === 0 ? 1.2 : 0.7}
           />
-        );
-      })}
-      {points.map((point) => {
-        const selected = point.id === selectedId;
-        const px = toX(point.x);
-        const py = toY(point.y);
-        return (
-          <g key={point.id}>
-            {selected ? (
-              <circle cx={px} cy={py} r="10" fill="#10b981" opacity="0.16" />
-            ) : null}
-            <circle
-              cx={px}
-              cy={py}
-              r={selected ? 5.5 : 4}
-              fill={selected ? "#0b4f3a" : "#0284c7"}
+        ))}
+        {yTicks.map((tick) => (
+          <line
+            key={`y-grid-${tick}`}
+            x1={left}
+            y1={toY(tick)}
+            x2={width - right}
+            y2={toY(tick)}
+            stroke={tick === 0 ? "#94a3b8" : "#e2e8f0"}
+            strokeWidth={tick === 0 ? 1.2 : 0.7}
+          />
+        ))}
+        {xTicks.map((tick) => (
+          <text
+            key={`x-label-${tick}`}
+            x={toX(tick)}
+            y={height - bottom + 14}
+            textAnchor="middle"
+            fontSize="7"
+            fill="#64748b"
+          >
+            {tick}
+          </text>
+        ))}
+        {yTicks.map((tick) => (
+          <text
+            key={`y-label-${tick}`}
+            x={left - 6}
+            y={toY(tick) + 2.5}
+            textAnchor="end"
+            fontSize="7"
+            fill="#64748b"
+          >
+            {tick}
+          </text>
+        ))}
+        <text
+          x={width - right}
+          y={height - 5}
+          textAnchor="end"
+          fontSize="7.5"
+          fontWeight="600"
+          fill="#475569"
+        >
+          X
+        </text>
+        <text
+          x="10"
+          y={top + 2}
+          fontSize="7.5"
+          fontWeight="600"
+          fill="#475569"
+        >
+          Y
+        </text>
+        <path
+          d={outline}
+          fill="none"
+          stroke="#64748b"
+          strokeWidth="1.8"
+          strokeDasharray="6 4"
+        />
+        {[meso, endo, ecto].map((vertex, index) => (
+          <line
+            key={`reference-${index}`}
+            x1={origin.x}
+            y1={origin.y}
+            x2={vertex.x}
+            y2={vertex.y}
+            stroke="#94a3b8"
+            strokeWidth="1"
+            strokeDasharray="3 3"
+          />
+        ))}
+        <text
+          x={meso.x}
+          y={meso.y - 9}
+          textAnchor="middle"
+          fontSize="8"
+          fontWeight="600"
+          fill="#334155"
+        >
+          MESOMORFO
+        </text>
+        <text
+          x={endo.x - 5}
+          y={endo.y + 17}
+          textAnchor="end"
+          fontSize="8"
+          fontWeight="600"
+          fill="#334155"
+        >
+          ENDOMORFO
+        </text>
+        <text
+          x={ecto.x + 5}
+          y={ecto.y + 17}
+          fontSize="8"
+          fontWeight="600"
+          fill="#334155"
+        >
+          ECTOMORFO
+        </text>
+        {plottedPoints.map((point, index) => {
+          if (index === 0) return null;
+          const previous = plottedPoints[index - 1];
+          return (
+            <line
+              key={`${point.id}-line`}
+              x1={previous.px}
+              y1={previous.py}
+              x2={point.px}
+              y2={point.py}
+              stroke="#64748b"
+              strokeWidth="1.2"
+              strokeDasharray="3 2"
             />
-            <text
-              x={px + 7}
-              y={py + 3}
-              fill={selected ? "#0b4f3a" : "#0284c7"}
-              fontSize="7.5"
-              fontWeight={selected ? "bold" : "400"}
-            >
-              {point.label ?? ""}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+          );
+        })}
+        {plottedPoints.map((point, index) => {
+          const selected = point.id === selectedId;
+          return (
+            <g key={point.id}>
+              {selected ? (
+                <circle
+                  cx={point.px}
+                  cy={point.py}
+                  r="10"
+                  fill="#10b981"
+                  opacity="0.18"
+                />
+              ) : null}
+              <circle
+                cx={point.px}
+                cy={point.py}
+                r="5.5"
+                fill={point.color}
+                stroke="#fff"
+                strokeWidth="1"
+              />
+              <text
+                x={point.px}
+                y={point.py + 2.1}
+                textAnchor="middle"
+                fill="#fff"
+                fontSize="5.5"
+                fontWeight="700"
+              >
+                {index + 1}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      {plottedPoints.length ? (
+        <div className="mt-1 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.65rem] text-slate-600 print:text-[6px]">
+          {plottedPoints.map((point, index) => (
+            <span key={`${point.id}-legend`} className="inline-flex items-center gap-1">
+              <span
+                className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[0.5rem] font-bold text-white print:h-2.5 print:min-w-2.5 print:text-[5px]"
+                style={{ backgroundColor: point.color }}
+              >
+                {index + 1}
+              </span>
+              <span>{point.label || `Medición ${index + 1}`}</span>
+              {point.id === selectedId ? (
+                <span className="font-semibold text-emerald-800">(actual)</span>
+              ) : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
