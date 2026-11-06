@@ -2453,7 +2453,9 @@ export default async function ClientDetailPage({
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className={labelClass}>
+                            <div
+                              className={`${labelClass} font-bold text-emerald-700`}
+                            >
                               {formatDate(note.created_at)}
                             </div>
                             {isSupplement ? (
@@ -2472,67 +2474,80 @@ export default async function ClientDetailPage({
                             {note.content}
                           </p>
                         </div>
-                        <form action={deleteClientNote}>
-                          <input
-                            type="hidden"
-                            name="client_id"
-                            value={client.id}
-                          />
-                          <input type="hidden" name="note_id" value={note.id} />
-                          <SubmitButton
-                            className="inline-flex h-8 w-8 items-center cursor-pointer justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                            ariaLabel="Eliminar nota"
-                            icon="trash"
-                          />
-                        </form>
-                      </div>
-                      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-slate-600 transition hover:text-emerald-800">
-                          <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
-                          Editar nota
-                        </summary>
-                        <form
-                          action={updateClientNote}
-                          className="mt-3 space-y-3 border-t border-slate-200 pt-3"
-                        >
-                          <input
-                            type="hidden"
-                            name="client_id"
-                            value={client.id}
-                          />
-                          <input type="hidden" name="note_id" value={note.id} />
-                          <label className="block max-w-xs space-y-1">
-                            <span className={labelClass}>Tipo de nota</span>
-                            <select
-                              name="note_type"
-                              defaultValue={note.note_type ?? "normal"}
-                              className={inputClass}
+                        <div className="flex shrink-0 items-center gap-1">
+                          <details className="group relative">
+                            <summary
+                              className="inline-flex h-8 w-8 list-none items-center justify-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700 group-open:bg-emerald-50 group-open:text-emerald-700 [&::-webkit-details-marker]:hidden"
+                              aria-label="Editar nota"
+                              title="Editar nota"
                             >
-                              <option value="normal">Normal</option>
-                              <option value="supplement">Suplemento</option>
-                            </select>
-                          </label>
-                          <label className="block space-y-1">
-                            <span className={labelClass}>Contenido</span>
-                            <textarea
-                              name="content"
-                              rows={4}
-                              required
-                              defaultValue={note.content}
-                              className="min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+                              <Edit3 className="h-4 w-4" aria-hidden="true" />
+                            </summary>
+                            <form
+                              action={updateClientNote}
+                              className="absolute right-0 z-20 mt-2 w-[min(28rem,calc(100vw-3rem))] space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.14)]"
+                            >
+                              <input
+                                type="hidden"
+                                name="client_id"
+                                value={client.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="note_id"
+                                value={note.id}
+                              />
+                              <label className="block space-y-1">
+                                <span className={labelClass}>Tipo de nota</span>
+                                <select
+                                  name="note_type"
+                                  defaultValue={note.note_type ?? "normal"}
+                                  className={inputClass}
+                                >
+                                  <option value="normal">Normal</option>
+                                  <option value="supplement">Suplemento</option>
+                                </select>
+                              </label>
+                              <label className="block space-y-1">
+                                <span className={labelClass}>Contenido</span>
+                                <textarea
+                                  name="content"
+                                  rows={4}
+                                  required
+                                  defaultValue={note.content}
+                                  className="min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+                                />
+                              </label>
+                              <div className="flex justify-end">
+                                <SubmitButton
+                                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                                  pendingLabel="Guardando..."
+                                  icon="save"
+                                >
+                                  Guardar cambios
+                                </SubmitButton>
+                              </div>
+                            </form>
+                          </details>
+                          <form action={deleteClientNote}>
+                            <input
+                              type="hidden"
+                              name="client_id"
+                              value={client.id}
                             />
-                          </label>
-                          <div className="flex justify-end">
+                            <input
+                              type="hidden"
+                              name="note_id"
+                              value={note.id}
+                            />
                             <SubmitButton
-                              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                              pendingLabel="Guardando..."
-                              icon="save"
-                            >
-                              Guardar cambios
-                            </SubmitButton>
-                          </div>
-                        </form>
-                      </details>
+                              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                              ariaLabel="Eliminar nota"
+                              icon="trash"
+                            />
+                          </form>
+                        </div>
+                      </div>
                     </article>
                   );
                 })
