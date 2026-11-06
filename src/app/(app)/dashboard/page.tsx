@@ -1,8 +1,14 @@
 import Link from "next/link";
 import {
+  Activity,
   ArrowRight,
+  CalendarCheck2,
   CalendarClock,
+  CheckCircle2,
+  CircleAlert,
+  Clock3,
   ClipboardList,
+  Ruler,
   Target,
   TrendingUp,
   UsersRound,
@@ -28,8 +34,43 @@ const months = [
   "Dic",
 ];
 
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+const FOLLOW_UP_DAYS = 45;
+const DASHBOARD_TIME_ZONE = "Europe/Madrid";
+
+function isoDateInTimeZone(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: DASHBOARD_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function addDays(value: string, amount: number) {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+
+function weekEnd(value: string) {
+  const day = new Date(`${value}T12:00:00Z`).getUTCDay();
+  return addDays(value, (7 - day) % 7);
+}
+
+function shortDate(value: string) {
+  const date = value.includes("T")
+    ? new Date(value)
+    : new Date(`${value}T12:00:00Z`);
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
 }
 
 function dateParts(value: string) {
@@ -84,16 +125,72 @@ function DashboardMetric({
   );
 }
 
+type AttentionKind = "appointment" | "measurement" | "plan";
+
+type AttentionItem = {
+  key: string;
+  clientName: string;
+  title: string;
+  detail: string;
+  href: string;
+  kind: AttentionKind;
+};
+
+const attentionMeta: Record<
+  AttentionKind,
+  { Icon: LucideIcon; iconClassName: string }
+> = {
+  appointment: {
+    Icon: Clock3,
+    iconClassName: "bg-amber-100 text-amber-700",
+  },
+  measurement: {
+    Icon: Ruler,
+    iconClassName: "bg-blue-100 text-blue-700",
+  },
+  plan: {
+    Icon: Utensils,
+    iconClassName: "bg-violet-100 text-violet-700",
+  },
+};
+
+function AttentionRow({ item }: { item: AttentionItem }) {
+  const { Icon, iconClassName } = attentionMeta[item.kind];
+
+  return (
+    <Link
+      href={item.href}
+      className="group flex items-center gap-3 px-5 py-4 transition hover:bg-[#f9fbf9] sm:px-6"
+    >
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}
+      >
+        <Icon className="h-4.5 w-4.5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-semibold text-slate-950">
+          {item.clientName}
+        </div>
+        <div className="mt-0.5 text-sm text-slate-600">{item.title}</div>
+        <div className="mt-0.5 text-xs text-slate-400">{item.detail}</div>
+      </div>
+      <ArrowRight
+        className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-emerald-700"
+        aria-hidden="true"
+      />
+    </Link>
+  );
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const today = todayIsoDate();
+  const today = isoDateInTimeZone();
   const now = new Date();
-  const monthStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    1,
-  ).toISOString();
+  const monthStart = `${today.slice(0, 8)}01`;
+  const endOfWeek = weekEnd(today);
+  const followUpThreshold = addDays(today, -FOLLOW_UP_DAYS);
   const todayLabel = new Intl.DateTimeFormat("es-ES", {
+    timeZone: DASHBOARD_TIME_ZONE,
     weekday: "long",
     day: "numeric",
     month: "short",
@@ -101,31 +198,22 @@ export default async function DashboardPage() {
   }).format(now);
 
   const [
-    clientsCount,
-    newClientsThisMonth,
-    plansCount,
-    recentClients,
-    upcomingAppointments,
+    activeClientsResult,
+    activePlansResult,
+    upcomingAppointmentsResult,
+    overdueAppointmentsResult,
+    recentWeightsResult,
+    recentAnthropometryResult,
   ] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active"),
-    supabase
-      .from("clients")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active")
-      .gte("created_at", monthStart),
-    supabase
-      .from("plans")
-      .select("id,clients!inner(status)", { count: "exact", head: true })
-      .eq("clients.status", "active"),
     supabase
       .from("clients")
       .select("id,name,email,goal,sport,created_at")
       .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(6),
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("plans")
+      .select("client_id,updated_at,clients!inner(status)")
+      .eq("clients.status", "active"),
     supabase
       .from("client_appointments")
       .select(
@@ -135,14 +223,119 @@ export default async function DashboardPage() {
       .eq("completed", false)
       .order("scheduled_date", { ascending: true })
       .order("scheduled_time", { ascending: true })
-      .limit(2),
+      .limit(100),
+    supabase
+      .from("client_appointments")
+      .select("id,client_id,scheduled_date,clients!inner(name,status)")
+      .lt("scheduled_date", today)
+      .eq("completed", false)
+      .eq("clients.status", "active")
+      .order("scheduled_date", { ascending: false })
+      .limit(100),
+    supabase
+      .from("client_weight_logs")
+      .select("client_id")
+      .gte("measured_at", followUpThreshold),
+    supabase
+      .from("client_anthropometry_assessments")
+      .select("client_id")
+      .gte("measured_at", followUpThreshold),
   ]);
 
-  const activeClientsCount = clientsCount.count ?? 0;
-  const activePlansCount = plansCount.count ?? 0;
+  const activeClients = activeClientsResult.data ?? [];
+  const activePlans = activePlansResult.data ?? [];
+  const upcomingAppointments = upcomingAppointmentsResult.data ?? [];
+  const recentClients = activeClients.slice(0, 6);
+  const activeClientsCount = activeClients.length;
+  const activePlansCount = activePlans.length;
+  const newClientsThisMonth = activeClients.filter(
+    (client) => isoDateInTimeZone(new Date(client.created_at)) >= monthStart,
+  ).length;
   const activeClientsWithPlanPercentage = activeClientsCount
     ? Math.round((activePlansCount / activeClientsCount) * 100)
     : 0;
+
+  const clientsById = new Map(
+    activeClients.map((client) => [client.id, client]),
+  );
+  const plansByClientId = new Map(
+    activePlans.map((plan) => [plan.client_id, plan]),
+  );
+  const plansDataAvailable = !activePlansResult.error;
+  const measurementsDataAvailable =
+    !recentWeightsResult.error && !recentAnthropometryResult.error;
+  const recentlyMeasuredClientIds = new Set([
+    ...(recentWeightsResult.data ?? []).map((row) => row.client_id),
+    ...(recentAnthropometryResult.data ?? []).map((row) => row.client_id),
+  ]);
+  const overdueAppointmentsByClient = new Map<
+    string,
+    NonNullable<typeof overdueAppointmentsResult.data>[number]
+  >();
+
+  for (const appointment of overdueAppointmentsResult.data ?? []) {
+    if (!overdueAppointmentsByClient.has(appointment.client_id)) {
+      overdueAppointmentsByClient.set(appointment.client_id, appointment);
+    }
+  }
+
+  const attentionItems: AttentionItem[] = [
+    ...Array.from(overdueAppointmentsByClient.values()).map((appointment) => ({
+      key: `appointment-${appointment.id}`,
+      clientName: appointment.clients.name,
+      title: "Cita pendiente de completar",
+      detail: `Programada el ${shortDate(appointment.scheduled_date)}`,
+      href: `/clients/${appointment.client_id}?tab=citas`,
+      kind: "appointment" as const,
+    })),
+    ...activeClients
+      .filter((client) => plansDataAvailable && !plansByClientId.has(client.id))
+      .map((client) => ({
+        key: `plan-missing-${client.id}`,
+        clientName: client.name,
+        title: "Sin plan nutricional",
+        detail: "Cliente activo sin un plan asignado",
+        href: `/clients/${client.id}?tab=plan`,
+        kind: "plan" as const,
+      })),
+    ...activePlans
+      .filter(
+        (plan) =>
+          plansDataAvailable &&
+          plan.updated_at.slice(0, 10) < followUpThreshold,
+      )
+      .flatMap((plan) => {
+        const client = clientsById.get(plan.client_id);
+        if (!client) return [];
+
+        return [
+          {
+            key: `plan-stale-${client.id}`,
+            clientName: client.name,
+            title: "Plan pendiente de revisión",
+            detail: `Sin actualizar desde el ${shortDate(plan.updated_at)}`,
+            href: `/clients/${client.id}?tab=plan`,
+            kind: "plan" as const,
+          },
+        ];
+      }),
+    ...activeClients
+      .filter(
+        (client) =>
+          measurementsDataAvailable &&
+          isoDateInTimeZone(new Date(client.created_at)) <= followUpThreshold &&
+          !recentlyMeasuredClientIds.has(client.id),
+      )
+      .map((client) => ({
+        key: `measurement-${client.id}`,
+        clientName: client.name,
+        title: "Seguimiento sin actualizar",
+        detail: `Sin peso ni antropometría en los últimos ${FOLLOW_UP_DAYS} días`,
+        href: `/clients/${client.id}?tab=peso`,
+        kind: "measurement" as const,
+      })),
+  ];
+  const visibleAttentionItems = attentionItems.slice(0, 6);
 
   return (
     <div className="space-y-7">
@@ -179,10 +372,10 @@ export default async function DashboardPage() {
         >
           <DashboardMetric
             label="Clientes activos"
-            value={clientsCount.count ?? 0}
+            value={activeClientsCount}
             helper="En seguimiento actualmente"
             Icon={UsersRound}
-            trend={`+${newClientsThisMonth.count ?? 0} este mes`}
+            trend={`+${newClientsThisMonth} este mes`}
           />
           <DashboardMetric
             label="Planes nutricionales"
@@ -206,9 +399,9 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {upcomingAppointments.data?.length ? (
+          {upcomingAppointments.length ? (
             <div className="relative mt-5 space-y-3 pl-5 before:absolute before:bottom-3 before:left-[5px] before:top-3 before:w-px before:bg-slate-200">
-              {upcomingAppointments.data.map((appointment, index) => {
+              {upcomingAppointments.slice(0, 2).map((appointment, index) => {
                 const parts = dateParts(appointment.scheduled_date);
                 return (
                   <Link
@@ -258,6 +451,61 @@ export default async function DashboardPage() {
       <section className="clinical-card overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
           <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+              <CircleAlert className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-lg font-bold tracking-[-0.02em] text-[#003626]">
+                Requieren atención
+              </h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Tareas que conviene revisar
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex min-w-8 items-center justify-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+            {attentionItems.length}
+          </span>
+        </div>
+
+        {visibleAttentionItems.length ? (
+          <>
+            <div className="divide-y divide-slate-100">
+              {visibleAttentionItems.map((item) => (
+                <AttentionRow key={item.key} item={item} />
+              ))}
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-[#f8faf9] px-5 py-3 sm:px-6">
+              <p className="text-xs text-slate-500">
+                {attentionItems.length > visibleAttentionItems.length
+                  ? `Mostrando ${visibleAttentionItems.length} de ${attentionItems.length} tareas`
+                  : `${attentionItems.length} ${attentionItems.length === 1 ? "tarea pendiente" : "tareas pendientes"}`}
+              </p>
+              <Link
+                href="/clients"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-[#003626]"
+              >
+                Ver clientes
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center px-6 py-10 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <h3 className="mt-3 font-semibold text-slate-950">Todo al día</h3>
+            <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">
+              No hay citas vencidas ni seguimientos que necesiten atención.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="clinical-card overflow-hidden">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
+          <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0b4f3a] text-white">
               <UsersRound className="h-5 w-5" aria-hidden="true" />
             </span>
@@ -278,7 +526,7 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {recentClients.data?.length ? (
+        {recentClients.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="bg-[#f8faf9] text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500">
@@ -291,7 +539,7 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentClients.data.map((client, index) => (
+                {recentClients.map((client, index) => (
                   <tr key={client.id} className="transition hover:bg-[#f9fbf9]">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
