@@ -10,6 +10,10 @@ export function AppBreadcrumb() {
     ? "Clientes"
     : pathname.startsWith("/appointments")
       ? "Citas"
+      : pathname.startsWith("/bonos")
+        ? "Bonos"
+        : pathname.startsWith("/planes")
+          ? "Planes"
       : "Dashboard";
 
   return (
