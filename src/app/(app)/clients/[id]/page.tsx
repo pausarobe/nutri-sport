@@ -40,11 +40,13 @@ import { PrintButton } from "@/components/print-button";
 import { SubmitButton } from "@/components/submit-button";
 import { createClient } from "@/lib/supabase/server";
 import { clientStatusMeta } from "@/lib/client-status";
+import { appointmentStatusMeta } from "@/lib/appointment-status";
 import {
   isoDateInTimeZone,
   normalizeNutritionistProfile,
 } from "@/lib/nutritionist-profile";
 import type {
+  AppointmentStatus,
   ClientAppointment,
   ClientFile,
   ClientSex,
@@ -56,12 +58,11 @@ import {
   addClientAppointment,
   addClientNote,
   addClientWeight,
-  completeClientAppointment,
   deleteClientAppointment,
   deleteClientFile,
   deleteClientNote,
   deleteClientWeight,
-  reopenClientAppointment,
+  updateClientAppointmentStatus,
   updateClientNote,
   updateClientWeight,
 } from "../actions";
@@ -804,26 +805,60 @@ function MeasurementInputRows({
 function AppointmentActions({
   appointment,
   clientId,
-  completed,
 }: {
   appointment: ClientAppointment;
   clientId: string;
-  completed: boolean;
 }) {
+  const transitions: Array<{
+    status: AppointmentStatus;
+    label: string;
+    className: string;
+  }> =
+    appointment.status === "scheduled"
+      ? [
+          {
+            status: "completed",
+            label: "Completar",
+            className:
+              "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+          },
+          {
+            status: "no_show",
+            label: "No asistió",
+            className:
+              "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
+          },
+          {
+            status: "cancelled",
+            label: "Cancelar",
+            className:
+              "border-slate-300 bg-white text-slate-600 hover:bg-slate-50",
+          },
+        ]
+      : [
+          {
+            status: "scheduled",
+            label: "Reabrir",
+            className:
+              "border-slate-300 bg-white text-slate-600 hover:bg-slate-50",
+          },
+        ];
+
   return (
     <div className="flex flex-wrap gap-2">
-      <form
-        action={completed ? reopenClientAppointment : completeClientAppointment}
-      >
-        <input type="hidden" name="client_id" value={clientId} />
-        <input type="hidden" name="appointment_id" value={appointment.id} />
-        <SubmitButton
-          className="inline-flex items-center cursor-pointer gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100"
-          pendingLabel="..."
-        >
-          {completed ? "Deshacer" : "Hecha"}
-        </SubmitButton>
-      </form>
+      {transitions.map((transition) => (
+        <form key={transition.status} action={updateClientAppointmentStatus}>
+          <input type="hidden" name="client_id" value={clientId} />
+          <input type="hidden" name="appointment_id" value={appointment.id} />
+          <input type="hidden" name="status" value={transition.status} />
+          <SubmitButton
+            className={`inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${transition.className}`}
+            pendingLabel="..."
+          >
+            {transition.label}
+          </SubmitButton>
+        </form>
+      ))}
       <form action={deleteClientAppointment}>
         <input type="hidden" name="client_id" value={clientId} />
         <input type="hidden" name="appointment_id" value={appointment.id} />
@@ -842,13 +877,11 @@ function AppointmentList({
   title,
   appointments,
   clientId,
-  completed = false,
   empty,
 }: {
   title: string;
   appointments: ClientAppointment[];
   clientId: string;
-  completed?: boolean;
   empty: string;
 }) {
   return (
@@ -856,36 +889,51 @@ function AppointmentList({
       <h3 className="mb-3 font-semibold text-slate-950">{title}</h3>
       {appointments.length ? (
         <div className="divide-y divide-slate-100">
-          {appointments.map((appointment) => (
-            <div
-              key={appointment.id}
-              className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center"
-            >
-              <DateBadge date={appointment.scheduled_date} />
-              <div className="min-w-0 flex-1">
-                <div
-                  className={`text-sm font-semibold ${completed ? "text-slate-500 line-through" : "text-slate-950"}`}
-                >
-                  {appointment.appointment_type}
-                </div>
-                <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500">
-                  {appointment.scheduled_time ? (
-                    <span className="inline-flex items-center gap-1 text-blue-700">
-                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                      {appointment.scheduled_time.slice(0, 5)}
+          {appointments.map((appointment) => {
+            const status = appointmentStatusMeta[appointment.status];
+            const isTerminal = appointment.status !== "scheduled";
+
+            return (
+              <div
+                key={appointment.id}
+                className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center"
+              >
+                <DateBadge date={appointment.scheduled_date} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`text-sm font-semibold ${
+                        isTerminal ? "text-slate-600" : "text-slate-950"
+                      } ${appointment.status === "cancelled" ? "line-through" : ""}`}
+                    >
+                      {appointment.appointment_type}
                     </span>
-                  ) : null}
-                  <span>{appointment.duration_minutes} min</span>
-                  {appointment.notes ? <span>{appointment.notes}</span> : null}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${status?.className}`}
+                    >
+                      {status.label}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500">
+                    {appointment.scheduled_time ? (
+                      <span className="inline-flex items-center gap-1 text-blue-700">
+                        <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                        {appointment.scheduled_time.slice(0, 5)}
+                      </span>
+                    ) : null}
+                    <span>{appointment.duration_minutes} min</span>
+                    {appointment.notes ? (
+                      <span>{appointment.notes}</span>
+                    ) : null}
+                  </div>
                 </div>
+                <AppointmentActions
+                  appointment={appointment}
+                  clientId={clientId}
+                />
               </div>
-              <AppointmentActions
-                appointment={appointment}
-                clientId={clientId}
-                completed={completed}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <p className="text-sm text-slate-500">{empty}</p>
@@ -1096,16 +1144,19 @@ export default async function ClientDetailPage({
     : (appointmentsResult.data ?? []);
   const upcomingAppointments = appointments.filter(
     (appointment) =>
-      appointment.scheduled_date >= today && !appointment.completed,
+      appointment.scheduled_date >= today && appointment.status === "scheduled",
   );
   const nextAppointment = upcomingAppointments[0] ?? null;
-  const completedAppointments = appointments.filter(
-    (appointment) => appointment.completed,
-  );
-  const pastAppointments = appointments.filter(
-    (appointment) =>
-      appointment.scheduled_date < today && !appointment.completed,
-  );
+  const pendingAppointments = appointments
+    .filter(
+      (appointment) =>
+        appointment.scheduled_date < today &&
+        appointment.status === "scheduled",
+    )
+    .reverse();
+  const resolvedAppointments = appointments
+    .filter((appointment) => appointment.status !== "scheduled")
+    .reverse();
   const planSettings = energySettingsFromJson(plan?.energy_settings);
   const mealDistribution = mealDistributionFromJson(plan?.meal_distribution);
   const energy = calculateEnergyPlan({
@@ -2150,20 +2201,19 @@ export default async function ClientDetailPage({
                 clientId={client.id}
                 empty="Sin citas programadas."
               />
-              {completedAppointments.length ? (
+              {pendingAppointments.length ? (
                 <AppointmentList
-                  title="Completadas"
-                  appointments={completedAppointments}
+                  title="Pendientes anteriores"
+                  appointments={pendingAppointments}
                   clientId={client.id}
-                  completed
-                  empty="Sin citas completadas."
+                  empty="Sin citas anteriores pendientes."
                 />
               ) : null}
               <AppointmentList
-                title="Historial (pasadas)"
-                appointments={pastAppointments}
+                title="Historial"
+                appointments={resolvedAppointments}
                 clientId={client.id}
-                empty="Sin historial de citas pasadas."
+                empty="Sin citas completadas, canceladas o con inasistencia."
               />
             </div>
           </section>

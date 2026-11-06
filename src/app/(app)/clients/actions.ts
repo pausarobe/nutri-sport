@@ -27,9 +27,14 @@ import {
 } from "@/lib/form";
 import type {
   ActivityLevel,
+  AppointmentStatus,
   ClientSex,
   ClientStatus,
 } from "@/lib/database.types";
+import {
+  APPOINTMENT_STATUSES,
+  appointmentStatusMeta,
+} from "@/lib/appointment-status";
 import { clientFileValidationError } from "@/lib/client-files";
 import { normalizeNutritionistProfile } from "@/lib/nutritionist-profile";
 
@@ -877,6 +882,7 @@ export async function addClientAppointment(formData: FormData) {
     duration_minutes: durationMinutes,
     appointment_type: appointmentType,
     notes: optionalFormString(formData, "notes"),
+    status: "scheduled",
   });
 
   if (error) {
@@ -888,6 +894,7 @@ export async function addClientAppointment(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/appointments");
   revalidatePath(`/clients/${clientId}`);
   redirectWithMessage(
     clientTabPath(clientId, "citas"),
@@ -896,19 +903,27 @@ export async function addClientAppointment(formData: FormData) {
   );
 }
 
-async function setClientAppointmentCompleted(
-  formData: FormData,
-  completed: boolean,
-) {
+export async function updateClientAppointmentStatus(formData: FormData) {
   const { supabase } = await getAuthedSupabase();
   const clientId = formString(formData, "client_id");
   const appointmentId = formString(formData, "appointment_id");
+  const rawStatus = formString(formData, "status");
+  const status = APPOINTMENT_STATUSES.includes(rawStatus as AppointmentStatus)
+    ? (rawStatus as AppointmentStatus)
+    : null;
 
   if (!clientId || !appointmentId) redirect("/clients");
+  if (!status) {
+    redirectWithMessage(
+      clientTabPath(clientId, "citas"),
+      "error",
+      "El estado de la cita no es válido.",
+    );
+  }
 
   const { error } = await supabase
     .from("client_appointments")
-    .update({ completed })
+    .update({ status })
     .eq("id", appointmentId);
 
   if (error) {
@@ -920,20 +935,15 @@ async function setClientAppointmentCompleted(
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/appointments");
   revalidatePath(`/clients/${clientId}`);
   redirectWithMessage(
     clientTabPath(clientId, "citas"),
     "success",
-    completed ? "Cita completada." : "Cita reabierta.",
+    status === "scheduled"
+      ? "Cita reabierta."
+      : `Cita marcada como ${appointmentStatusMeta[status].label.toLocaleLowerCase("es")}.`,
   );
-}
-
-export async function completeClientAppointment(formData: FormData) {
-  await setClientAppointmentCompleted(formData, true);
-}
-
-export async function reopenClientAppointment(formData: FormData) {
-  await setClientAppointmentCompleted(formData, false);
 }
 
 export async function deleteClientAppointment(formData: FormData) {
@@ -957,6 +967,7 @@ export async function deleteClientAppointment(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/appointments");
   revalidatePath(`/clients/${clientId}`);
   redirectWithMessage(
     clientTabPath(clientId, "citas"),

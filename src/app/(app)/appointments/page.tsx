@@ -21,7 +21,7 @@ export default async function AppointmentsPage() {
   const { data, error } = await supabase
     .from("client_appointments")
     .select(
-      "id,client_id,scheduled_date,scheduled_time,duration_minutes,appointment_type,notes,completed,clients(id,name)",
+      "id,client_id,scheduled_date,scheduled_time,duration_minutes,appointment_type,notes,status,clients(id,name)",
     )
     .order("scheduled_date", { ascending: true })
     .order("scheduled_time", { ascending: true });

@@ -196,7 +196,7 @@ export default async function DashboardPage() {
         "id,client_id,scheduled_date,scheduled_time,appointment_type,notes,clients(name)",
       )
       .gte("scheduled_date", today)
-      .eq("completed", false)
+      .eq("status", "scheduled")
       .order("scheduled_date", { ascending: true })
       .order("scheduled_time", { ascending: true })
       .limit(100),
@@ -204,7 +204,7 @@ export default async function DashboardPage() {
       .from("client_appointments")
       .select("id,client_id,scheduled_date,clients!inner(name,status)")
       .lt("scheduled_date", today)
-      .eq("completed", false)
+      .eq("status", "scheduled")
       .eq("clients.status", "active")
       .order("scheduled_date", { ascending: false })
       .limit(100),

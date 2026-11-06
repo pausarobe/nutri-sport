@@ -12,6 +12,8 @@ import {
   Clock3,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { appointmentStatusMeta } from "@/lib/appointment-status";
+import type { AppointmentStatus } from "@/lib/database.types";
 
 export type AgendaAppointment = {
   id: string;
@@ -21,7 +23,7 @@ export type AgendaAppointment = {
   duration_minutes: number;
   appointment_type: string;
   notes: string | null;
-  completed: boolean;
+  status: AppointmentStatus;
   clients: { id: string; name: string } | null;
 };
 
@@ -118,11 +120,15 @@ function DayTimeline({
   endTime: string;
 }) {
   const range = timelineRange(startTime, endTime);
-  const blocks = timelineBlocks(appointments, range);
+  const activeAppointments = appointments.filter(
+    (appointment) =>
+      appointment.status === "scheduled" || appointment.status === "completed",
+  );
+  const blocks = timelineBlocks(activeAppointments, range);
   const laneCount = blocks.length
     ? Math.max(...blocks.map((block) => block.lane)) + 1
     : 1;
-  const appointmentsWithoutVisibleTime = appointments.filter((appointment) => {
+  const appointmentsWithoutVisibleTime = activeAppointments.filter((appointment) => {
     const start = minutesFromTime(appointment.scheduled_time);
     if (start === null) return true;
     const end = start + appointment.duration_minutes;
@@ -200,7 +206,7 @@ function DayTimeline({
                   key={block.appointment.id}
                   href={`/clients/${block.appointment.client_id}?tab=citas`}
                   className={`absolute flex h-8 items-center overflow-hidden rounded-md border px-2 text-[11px] font-semibold text-white shadow-sm transition hover:z-20 hover:brightness-105 ${
-                    block.appointment.completed
+                    block.appointment.status === "completed"
                       ? "border-slate-500 bg-slate-500"
                       : "border-emerald-700 bg-emerald-600"
                   }`}
@@ -297,26 +303,23 @@ function timeLabel(value: string | null) {
   return value ? value.slice(0, 5) : "Sin hora";
 }
 
-type AppointmentStatus = "completed" | "overdue" | "today" | "scheduled";
+type AppointmentDisplayStatus = AppointmentStatus | "overdue" | "today";
 
-function appointmentStatus(
-  appointment: { completed: boolean; scheduled_date: string },
+function appointmentDisplayStatus(
+  appointment: { status: AppointmentStatus; scheduled_date: string },
   today: string,
-): AppointmentStatus {
-  if (appointment.completed) return "completed";
+): AppointmentDisplayStatus {
+  if (appointment.status !== "scheduled") return appointment.status;
   if (appointment.scheduled_date < today) return "overdue";
   if (appointment.scheduled_date === today) return "today";
   return "scheduled";
 }
 
-const statusMeta: Record<
-  AppointmentStatus,
+const displayStatusMeta: Record<
+  AppointmentDisplayStatus,
   { label: string; className: string }
 > = {
-  completed: {
-    label: "Completada",
-    className: "bg-emerald-100 text-emerald-800",
-  },
+  ...appointmentStatusMeta,
   overdue: {
     label: "Pendiente",
     className: "bg-red-100 text-red-700",
@@ -324,10 +327,6 @@ const statusMeta: Record<
   today: {
     label: "Hoy",
     className: "bg-blue-100 text-blue-700",
-  },
-  scheduled: {
-    label: "Programada",
-    className: "bg-[#f2f3ff] text-indigo-700",
   },
 };
 
@@ -432,7 +431,8 @@ export function AppointmentsWorkspace({
         {selectedAppointments.length ? (
           <div className="divide-y divide-slate-100">
             {selectedAppointments.map((appointment) => {
-              const status = statusMeta[appointmentStatus(appointment, today)];
+              const status =
+                displayStatusMeta[appointmentDisplayStatus(appointment, today)];
               return (
                 <Link
                   key={appointment.id}
@@ -618,7 +618,9 @@ export function AppointmentsWorkspace({
               <tbody className="divide-y divide-slate-100">
                 {orderedAppointments.map((appointment) => {
                   const status =
-                    statusMeta[appointmentStatus(appointment, today)];
+                    displayStatusMeta[
+                      appointmentDisplayStatus(appointment, today)
+                    ];
                   return (
                     <tr key={appointment.id} className="hover:bg-[#f9fbf9]">
                       <td className="whitespace-nowrap px-6 py-4 font-medium capitalize text-slate-800">
@@ -643,7 +645,7 @@ export function AppointmentsWorkspace({
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}
                         >
-                          {appointment.completed ? (
+                          {appointment.status === "completed" ? (
                             <CheckCircle2
                               className="h-3.5 w-3.5"
                               aria-hidden="true"

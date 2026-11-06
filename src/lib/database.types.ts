@@ -380,7 +380,7 @@ export type Database = {
           duration_minutes: number;
           appointment_type: string;
           notes: string | null;
-          completed: boolean;
+          status: AppointmentStatus;
           created_at: string;
           updated_at: string;
         };
@@ -393,7 +393,7 @@ export type Database = {
           duration_minutes?: number;
           appointment_type?: string;
           notes?: string | null;
-          completed?: boolean;
+          status?: AppointmentStatus;
           created_at?: string;
           updated_at?: string;
         };
@@ -406,7 +406,7 @@ export type Database = {
           duration_minutes?: number;
           appointment_type?: string;
           notes?: string | null;
-          completed?: boolean;
+          status?: AppointmentStatus;
           created_at?: string;
           updated_at?: string;
         };
@@ -431,6 +431,12 @@ export type Database = {
 export type ClientSex = "female" | "male";
 
 export type ClientStatus = "active" | "paused" | "inactive";
+
+export type AppointmentStatus =
+  | "scheduled"
+  | "completed"
+  | "cancelled"
+  | "no_show";
 
 export type AnthropometryRace = "caucasian" | "black" | "asian";
 

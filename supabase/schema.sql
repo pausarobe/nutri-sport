@@ -156,7 +156,9 @@ create table if not exists public.client_appointments (
   duration_minutes integer not null default 60 check (duration_minutes between 15 and 480),
   appointment_type text not null default 'Revision mensual',
   notes text,
-  completed boolean not null default false,
+  status text not null default 'scheduled' check (
+    status in ('scheduled', 'completed', 'cancelled', 'no_show')
+  ),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -186,7 +188,7 @@ create index if not exists client_appointments_client_id_scheduled_idx
   on public.client_appointments(client_id, scheduled_date asc, scheduled_time asc);
 
 create index if not exists client_appointments_user_upcoming_idx
-  on public.client_appointments(user_id, completed, scheduled_date asc, scheduled_time asc);
+  on public.client_appointments(user_id, status, scheduled_date asc, scheduled_time asc);
 
 drop trigger if exists set_clients_updated_at on public.clients;
 create trigger set_clients_updated_at
