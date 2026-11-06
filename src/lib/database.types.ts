@@ -9,6 +9,75 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      nutritionist_profiles: {
+        Row: {
+          user_id: string;
+          display_name: string | null;
+          clinic_name: string | null;
+          professional_title: string | null;
+          license_number: string | null;
+          professional_email: string | null;
+          phone: string | null;
+          address: string | null;
+          avatar_path: string | null;
+          logo_path: string | null;
+          signature_path: string | null;
+          time_zone: string;
+          locale: string;
+          agenda_start_time: string;
+          agenda_end_time: string;
+          default_appointment_duration: number;
+          appointment_types: string[];
+          follow_up_days: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          display_name?: string | null;
+          clinic_name?: string | null;
+          professional_title?: string | null;
+          license_number?: string | null;
+          professional_email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          avatar_path?: string | null;
+          logo_path?: string | null;
+          signature_path?: string | null;
+          time_zone?: string;
+          locale?: string;
+          agenda_start_time?: string;
+          agenda_end_time?: string;
+          default_appointment_duration?: number;
+          appointment_types?: string[];
+          follow_up_days?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          display_name?: string | null;
+          clinic_name?: string | null;
+          professional_title?: string | null;
+          license_number?: string | null;
+          professional_email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          avatar_path?: string | null;
+          logo_path?: string | null;
+          signature_path?: string | null;
+          time_zone?: string;
+          locale?: string;
+          agenda_start_time?: string;
+          agenda_end_time?: string;
+          default_appointment_duration?: number;
+          appointment_types?: string[];
+          follow_up_days?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       clients: {
         Row: {
           id: string;
@@ -373,6 +442,8 @@ export type ActivityLevel =
   | "very_high";
 
 export type Client = Database["public"]["Tables"]["clients"]["Row"];
+export type NutritionistProfile =
+  Database["public"]["Tables"]["nutritionist_profiles"]["Row"];
 export type Plan = Database["public"]["Tables"]["plans"]["Row"];
 export type ClientNote = Database["public"]["Tables"]["client_notes"]["Row"];
 export type ClientFile = Database["public"]["Tables"]["client_files"]["Row"];

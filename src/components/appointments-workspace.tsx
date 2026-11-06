@@ -28,13 +28,12 @@ export type AgendaAppointment = {
 type AppointmentsWorkspaceProps = {
   appointments: AgendaAppointment[];
   today: string;
+  agendaStartTime: string;
+  agendaEndTime: string;
+  locale: string;
 };
 
 const MAX_WEEK_OFFSET = 2;
-const TIMELINE_START_MINUTES = 7 * 60;
-const TIMELINE_END_MINUTES = 22 * 60;
-const TIMELINE_DURATION_MINUTES = TIMELINE_END_MINUTES - TIMELINE_START_MINUTES;
-const TIMELINE_HOURS = Array.from({ length: 16 }, (_, index) => index + 7);
 
 function minutesFromTime(value: string | null) {
   if (!value) return null;
@@ -49,7 +48,25 @@ function clockTime(totalMinutes: number) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-function timelineBlocks(appointments: AgendaAppointment[]) {
+function timelineRange(startTime: string, endTime: string) {
+  const start = minutesFromTime(startTime) ?? 7 * 60;
+  const proposedEnd = minutesFromTime(endTime) ?? 22 * 60;
+  const end = proposedEnd > start ? proposedEnd : 22 * 60;
+  const duration = end - start;
+  const ticks = [];
+
+  for (let minute = start; minute < end; minute += 60) {
+    ticks.push(minute);
+  }
+  if (ticks.at(-1) !== end) ticks.push(end);
+
+  return { start, end, duration, ticks };
+}
+
+function timelineBlocks(
+  appointments: AgendaAppointment[],
+  range: ReturnType<typeof timelineRange>,
+) {
   const laneEnds: number[] = [];
 
   return appointments
@@ -58,7 +75,7 @@ function timelineBlocks(appointments: AgendaAppointment[]) {
       if (start === null) return [];
 
       const end = start + appointment.duration_minutes;
-      if (end <= TIMELINE_START_MINUTES || start >= TIMELINE_END_MINUTES) {
+      if (end <= range.start || start >= range.end) {
         return [];
       }
 
@@ -67,8 +84,8 @@ function timelineBlocks(appointments: AgendaAppointment[]) {
           appointment,
           originalStart: start,
           originalEnd: end,
-          start: Math.max(start, TIMELINE_START_MINUTES),
-          end: Math.min(end, TIMELINE_END_MINUTES),
+          start: Math.max(start, range.start),
+          end: Math.min(end, range.end),
         },
       ];
     })
@@ -85,16 +102,23 @@ function timelineBlocks(appointments: AgendaAppointment[]) {
       return {
         ...block,
         lane,
-        left:
-          ((block.start - TIMELINE_START_MINUTES) / TIMELINE_DURATION_MINUTES) *
-          100,
-        width: ((block.end - block.start) / TIMELINE_DURATION_MINUTES) * 100,
+        left: ((block.start - range.start) / range.duration) * 100,
+        width: ((block.end - block.start) / range.duration) * 100,
       };
     });
 }
 
-function DayTimeline({ appointments }: { appointments: AgendaAppointment[] }) {
-  const blocks = timelineBlocks(appointments);
+function DayTimeline({
+  appointments,
+  startTime,
+  endTime,
+}: {
+  appointments: AgendaAppointment[];
+  startTime: string;
+  endTime: string;
+}) {
+  const range = timelineRange(startTime, endTime);
+  const blocks = timelineBlocks(appointments, range);
   const laneCount = blocks.length
     ? Math.max(...blocks.map((block) => block.lane)) + 1
     : 1;
@@ -102,7 +126,7 @@ function DayTimeline({ appointments }: { appointments: AgendaAppointment[] }) {
     const start = minutesFromTime(appointment.scheduled_time);
     if (start === null) return true;
     const end = start + appointment.duration_minutes;
-    return end <= TIMELINE_START_MINUTES || start >= TIMELINE_END_MINUTES;
+    return end <= range.start || start >= range.end;
   }).length;
 
   return (
@@ -113,7 +137,7 @@ function DayTimeline({ appointments }: { appointments: AgendaAppointment[] }) {
             Disponibilidad del día
           </h3>
           <p className="mt-0.5 text-xs text-slate-500">
-            Franja visible de 07:00 a 22:00
+            Franja visible de {clockTime(range.start)} a {clockTime(range.end)}
           </p>
         </div>
         <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -129,23 +153,27 @@ function DayTimeline({ appointments }: { appointments: AgendaAppointment[] }) {
       </div>
 
       <div className="mt-4 overflow-x-auto pb-1">
-        <div className="min-w-[900px]">
+        <div
+          style={{
+            minWidth: `${Math.max(720, Math.ceil(range.duration / 60) * 72)}px`,
+          }}
+        >
           <div className="relative h-5 text-[10px] font-semibold text-slate-400">
-            {TIMELINE_HOURS.map((hour, index) => (
+            {range.ticks.map((minute, index) => (
               <span
-                key={hour}
+                key={minute}
                 className="absolute top-0"
                 style={{
-                  left: `${(index / (TIMELINE_HOURS.length - 1)) * 100}%`,
+                  left: `${((minute - range.start) / range.duration) * 100}%`,
                   transform:
                     index === 0
                       ? "translateX(0)"
-                      : index === TIMELINE_HOURS.length - 1
+                      : index === range.ticks.length - 1
                         ? "translateX(-100%)"
                         : "translateX(-50%)",
                 }}
               >
-                {String(hour).padStart(2, "0")}:00
+                {clockTime(minute)}
               </span>
             ))}
           </div>
@@ -153,12 +181,12 @@ function DayTimeline({ appointments }: { appointments: AgendaAppointment[] }) {
             className="relative overflow-hidden rounded-xl border border-slate-300 bg-white"
             style={{ height: `${Math.max(35, laneCount * 38)}px` }}
           >
-            {TIMELINE_HOURS.map((hour, index) => (
+            {range.ticks.map((minute) => (
               <span
-                key={hour}
+                key={minute}
                 className="absolute inset-y-0 border-l border-slate-200"
                 style={{
-                  left: `${(index / (TIMELINE_HOURS.length - 1)) * 100}%`,
+                  left: `${((minute - range.start) / range.duration) * 100}%`,
                 }}
                 aria-hidden="true"
               />
@@ -204,7 +232,8 @@ function DayTimeline({ appointments }: { appointments: AgendaAppointment[] }) {
           {appointmentsWithoutVisibleTime === 1
             ? "cita no aparece"
             : "citas no aparecen"}{" "}
-          en la barra porque no tiene hora o queda fuera de 07:00–22:00.
+          en la barra porque no tiene hora o queda fuera de {clockTime(range.start)}–
+          {clockTime(range.end)}.
         </p>
       ) : null}
     </div>
@@ -228,36 +257,40 @@ function weekFromDate(value: string) {
   };
 }
 
-function calendarDate(value: string, options: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat("es-ES", {
+function calendarDate(
+  value: string,
+  options: Intl.DateTimeFormatOptions,
+  locale: string,
+) {
+  return new Intl.DateTimeFormat(locale, {
     ...options,
     timeZone: "UTC",
   }).format(new Date(`${value}T12:00:00Z`));
 }
 
-function fullDate(value: string) {
+function fullDate(value: string, locale: string) {
   return calendarDate(value, {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-  });
+  }, locale);
 }
 
-function shortDate(value: string) {
+function shortDate(value: string, locale: string) {
   return calendarDate(value, {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  });
+  }, locale);
 }
 
-function dayLabel(value: string) {
-  return calendarDate(value, { weekday: "long" });
+function dayLabel(value: string, locale: string) {
+  return calendarDate(value, { weekday: "long" }, locale);
 }
 
-function dayNumber(value: string) {
-  return calendarDate(value, { day: "numeric", month: "short" });
+function dayNumber(value: string, locale: string) {
+  return calendarDate(value, { day: "numeric", month: "short" }, locale);
 }
 
 function timeLabel(value: string | null) {
@@ -301,6 +334,9 @@ const statusMeta: Record<
 export function AppointmentsWorkspace({
   appointments,
   today,
+  agendaStartTime,
+  agendaEndTime,
+  locale,
 }: AppointmentsWorkspaceProps) {
   const agendaRef = useRef<HTMLElement>(null);
   const [selectedDate, setSelectedDate] = useState(today);
@@ -377,7 +413,7 @@ export function AppointmentsWorkspace({
                 {selectedIsToday ? "Agenda de hoy" : "Agenda del día"}
               </h2>
               <p className="mt-0.5 capitalize text-sm text-slate-500">
-                {fullDate(selectedDate)}
+                {fullDate(selectedDate, locale)}
               </p>
             </div>
           </div>
@@ -387,7 +423,11 @@ export function AppointmentsWorkspace({
           </span>
         </div>
 
-        <DayTimeline appointments={selectedAppointments} />
+        <DayTimeline
+          appointments={selectedAppointments}
+          startTime={agendaStartTime}
+          endTime={agendaEndTime}
+        />
 
         {selectedAppointments.length ? (
           <div className="divide-y divide-slate-100">
@@ -454,7 +494,7 @@ export function AppointmentsWorkspace({
               {weekTitle}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Del {shortDate(week.start)} al {shortDate(week.end)}
+              Del {shortDate(week.start, locale)} al {shortDate(week.end, locale)}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -502,7 +542,7 @@ export function AppointmentsWorkspace({
                 type="button"
                 onClick={() => selectDay(date)}
                 aria-pressed={isSelected}
-                aria-label={`Ver agenda del ${fullDate(date)}: ${appointmentCount} ${appointmentCount === 1 ? "cita" : "citas"}`}
+                aria-label={`Ver agenda del ${fullDate(date, locale)}: ${appointmentCount} ${appointmentCount === 1 ? "cita" : "citas"}`}
                 className={`min-h-40 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md ${
                   isSelected
                     ? "border-emerald-600 bg-emerald-50 shadow-sm ring-2 ring-emerald-100"
@@ -514,10 +554,10 @@ export function AppointmentsWorkspace({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="capitalize text-xs font-bold uppercase tracking-[0.05em] text-slate-500">
-                      {dayLabel(date)}
+                      {dayLabel(date, locale)}
                     </div>
                     <div className="mt-1 text-lg font-bold capitalize text-[#003626]">
-                      {dayNumber(date)}
+                      {dayNumber(date, locale)}
                     </div>
                   </div>
                   {isToday ? (
@@ -582,7 +622,7 @@ export function AppointmentsWorkspace({
                   return (
                     <tr key={appointment.id} className="hover:bg-[#f9fbf9]">
                       <td className="whitespace-nowrap px-6 py-4 font-medium capitalize text-slate-800">
-                        {shortDate(appointment.scheduled_date)}
+                        {shortDate(appointment.scheduled_date, locale)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-slate-600">
                         {timeLabel(appointment.scheduled_time)}

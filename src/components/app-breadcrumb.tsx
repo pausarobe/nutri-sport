@@ -14,6 +14,8 @@ export function AppBreadcrumb() {
         ? "Bonos"
         : pathname.startsWith("/planes")
           ? "Planes"
+          : pathname.startsWith("/settings")
+            ? "Ajustes"
       : "Dashboard";
 
   return (

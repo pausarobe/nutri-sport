@@ -31,6 +31,7 @@ import type {
   ClientStatus,
 } from "@/lib/database.types";
 import { clientFileValidationError } from "@/lib/client-files";
+import { normalizeNutritionistProfile } from "@/lib/nutritionist-profile";
 
 const FILE_BUCKET = "client-files";
 const clientTabPath = (clientId: string, tab: string) =>
@@ -839,15 +840,24 @@ export async function addClientAppointment(formData: FormData) {
   const { supabase, userId } = await getAuthedSupabase();
   const clientId = formString(formData, "client_id");
   const scheduledDate = optionalFormString(formData, "scheduled_date");
+  const { data: profileData } = await supabase
+    .from("nutritionist_profiles")
+    .select("*")
+    .maybeSingle();
+  const profile = normalizeNutritionistProfile(profileData);
   const durationMinutes = Math.min(
     480,
     Math.max(
       15,
-      Math.round(optionalFormNumber(formData, "duration_minutes") ?? 60),
+      Math.round(
+        optionalFormNumber(formData, "duration_minutes") ??
+          profile.defaultAppointmentDuration,
+      ),
     ),
   );
   const appointmentType =
-    optionalFormString(formData, "appointment_type") ?? "Revisión mensual";
+    optionalFormString(formData, "appointment_type") ??
+    profile.appointmentTypes[0];
 
   if (!clientId) redirect("/clients");
 

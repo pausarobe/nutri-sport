@@ -1,8 +1,6 @@
 import Link from "next/link";
 import {
-  Activity,
   ArrowRight,
-  CalendarCheck2,
   CalendarClock,
   CheckCircle2,
   CircleAlert,
@@ -16,40 +14,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import {
+  isoDateInTimeZone,
+  normalizeNutritionistProfile,
+} from "@/lib/nutritionist-profile";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, initials } from "@/lib/format";
-
-const months = [
-  "Ene",
-  "Feb",
-  "Mar",
-  "Abr",
-  "May",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dic",
-];
-
-const FOLLOW_UP_DAYS = 45;
-const DASHBOARD_TIME_ZONE = "Europe/Madrid";
-
-function isoDateInTimeZone(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: DASHBOARD_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const values = Object.fromEntries(
-    parts.map((part) => [part.type, part.value]),
-  );
-
-  return `${values.year}-${values.month}-${values.day}`;
-}
 
 function addDays(value: string, amount: number) {
   const date = new Date(`${value}T12:00:00Z`);
@@ -57,27 +27,26 @@ function addDays(value: string, amount: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function weekEnd(value: string) {
-  const day = new Date(`${value}T12:00:00Z`).getUTCDay();
-  return addDays(value, (7 - day) % 7);
-}
-
-function shortDate(value: string) {
+function shortDate(value: string, locale: string) {
   const date = value.includes("T")
     ? new Date(value)
     : new Date(`${value}T12:00:00Z`);
 
-  return new Intl.DateTimeFormat("es-ES", {
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
   }).format(date);
 }
 
-function dateParts(value: string) {
-  const [year, month, day] = value.split("-");
+function dateParts(value: string, locale: string) {
+  const [year, , day] = value.split("-");
+  const date = new Date(`${value}T12:00:00Z`);
   return {
     year: year ?? "",
-    month: months[Math.max(0, Number(month) - 1)] ?? "",
+    month: new Intl.DateTimeFormat(locale, {
+      month: "short",
+      timeZone: "UTC",
+    }).format(date),
     day: day ?? "",
   };
 }
@@ -184,13 +153,20 @@ function AttentionRow({ item }: { item: AttentionItem }) {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const today = isoDateInTimeZone();
+  const [claimsResult, profileResult] = await Promise.all([
+    supabase.auth.getClaims(),
+    supabase.from("nutritionist_profiles").select("*").maybeSingle(),
+  ]);
+  const profile = normalizeNutritionistProfile(
+    profileResult.data,
+    claimsResult.data?.claims?.email as string | undefined,
+  );
+  const today = isoDateInTimeZone(profile.timeZone);
   const now = new Date();
   const monthStart = `${today.slice(0, 8)}01`;
-  const endOfWeek = weekEnd(today);
-  const followUpThreshold = addDays(today, -FOLLOW_UP_DAYS);
-  const todayLabel = new Intl.DateTimeFormat("es-ES", {
-    timeZone: DASHBOARD_TIME_ZONE,
+  const followUpThreshold = addDays(today, -profile.followUpDays);
+  const todayLabel = new Intl.DateTimeFormat(profile.locale, {
+    timeZone: profile.timeZone,
     weekday: "long",
     day: "numeric",
     month: "short",
@@ -249,7 +225,9 @@ export default async function DashboardPage() {
   const activeClientsCount = activeClients.length;
   const activePlansCount = activePlans.length;
   const newClientsThisMonth = activeClients.filter(
-    (client) => isoDateInTimeZone(new Date(client.created_at)) >= monthStart,
+    (client) =>
+      isoDateInTimeZone(profile.timeZone, new Date(client.created_at)) >=
+      monthStart,
   ).length;
   const activeClientsWithPlanPercentage = activeClientsCount
     ? Math.round((activePlansCount / activeClientsCount) * 100)
@@ -284,7 +262,7 @@ export default async function DashboardPage() {
       key: `appointment-${appointment.id}`,
       clientName: appointment.clients.name,
       title: "Cita pendiente de completar",
-      detail: `Programada el ${shortDate(appointment.scheduled_date)}`,
+      detail: `Programada el ${shortDate(appointment.scheduled_date, profile.locale)}`,
       href: `/clients/${appointment.client_id}?tab=citas`,
       kind: "appointment" as const,
     })),
@@ -313,7 +291,7 @@ export default async function DashboardPage() {
             key: `plan-stale-${client.id}`,
             clientName: client.name,
             title: "Plan pendiente de revisión",
-            detail: `Sin actualizar desde el ${shortDate(plan.updated_at)}`,
+            detail: `Sin actualizar desde el ${shortDate(plan.updated_at, profile.locale)}`,
             href: `/clients/${client.id}?tab=plan`,
             kind: "plan" as const,
           },
@@ -323,14 +301,15 @@ export default async function DashboardPage() {
       .filter(
         (client) =>
           measurementsDataAvailable &&
-          isoDateInTimeZone(new Date(client.created_at)) <= followUpThreshold &&
+          isoDateInTimeZone(profile.timeZone, new Date(client.created_at)) <=
+            followUpThreshold &&
           !recentlyMeasuredClientIds.has(client.id),
       )
       .map((client) => ({
         key: `measurement-${client.id}`,
         clientName: client.name,
         title: "Seguimiento sin actualizar",
-        detail: `Sin peso ni antropometría en los últimos ${FOLLOW_UP_DAYS} días`,
+        detail: `Sin peso ni antropometría en los últimos ${profile.followUpDays} días`,
         href: `/clients/${client.id}?tab=peso`,
         kind: "measurement" as const,
       })),
@@ -351,7 +330,7 @@ export default async function DashboardPage() {
               Portal de nutrición deportiva
             </span>
             <h1 className="mt-4 text-[32px] font-extrabold leading-tight tracking-[-0.035em] text-[#003626] sm:text-[40px]">
-              Consulta de Guillem Monserrat Vinyoles
+              {profile.clinicName}
             </h1>
             <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">
               Seguimiento clínico, planes nutricionales y próximas citas en una
@@ -364,6 +343,21 @@ export default async function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {!profile.isConfigured ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Completa tu perfil profesional para personalizar la consulta y la agenda.
+          </span>
+          <Link
+            href="/settings"
+            className="inline-flex shrink-0 items-center gap-1 font-semibold text-amber-900 hover:text-amber-700"
+          >
+            Configurar perfil
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[auto_minmax(0,1fr)]">
         <section
@@ -402,7 +396,10 @@ export default async function DashboardPage() {
           {upcomingAppointments.length ? (
             <div className="relative mt-5 space-y-3 pl-5 before:absolute before:bottom-3 before:left-[5px] before:top-3 before:w-px before:bg-slate-200">
               {upcomingAppointments.slice(0, 2).map((appointment, index) => {
-                const parts = dateParts(appointment.scheduled_date);
+                const parts = dateParts(
+                  appointment.scheduled_date,
+                  profile.locale,
+                );
                 return (
                   <Link
                     key={appointment.id}

@@ -40,6 +40,10 @@ import { PrintButton } from "@/components/print-button";
 import { SubmitButton } from "@/components/submit-button";
 import { createClient } from "@/lib/supabase/server";
 import { clientStatusMeta } from "@/lib/client-status";
+import {
+  isoDateInTimeZone,
+  normalizeNutritionistProfile,
+} from "@/lib/nutritionist-profile";
 import type {
   ClientAppointment,
   ClientFile,
@@ -102,14 +106,6 @@ const activityLabels = {
   very_high: "Muy alto",
 };
 
-const appointmentTypes = [
-  "Revisión mensual",
-  "Antropometría",
-  "Primera visita",
-  "Consulta",
-  "Seguimiento",
-];
-
 const clientTabs = [
   { key: "ficha", label: "Ficha" },
   { key: "peso", label: "Peso y evolución" },
@@ -147,10 +143,6 @@ function resolveClientTab(value: string | undefined): ClientTab {
 
 function clientTabHref(clientId: string, tab: ClientTab) {
   return `/clients/${clientId}?tab=${tab}`;
-}
-
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function clientAge(birthDate: string | null) {
@@ -910,7 +902,15 @@ export default async function ClientDetailPage({
   const query = await searchParams;
   const activeTab = resolveClientTab(query?.tab);
   const supabase = await createClient();
-  const today = todayIsoDate();
+  const [claimsResult, profileResult] = await Promise.all([
+    supabase.auth.getClaims(),
+    supabase.from("nutritionist_profiles").select("*").maybeSingle(),
+  ]);
+  const profile = normalizeNutritionistProfile(
+    profileResult.data,
+    claimsResult.data?.claims?.email as string | undefined,
+  );
+  const today = isoDateInTimeZone(profile.timeZone);
 
   const [
     clientResult,
@@ -2095,33 +2095,31 @@ export default async function ClientDetailPage({
                   <input
                     name="scheduled_time"
                     type="time"
-                    defaultValue="09:00"
+                    defaultValue={profile.agendaStartTime}
                     required
                     className={inputClass}
                   />
                 </label>
                 <label className="space-y-1">
                   <span className={labelClass}>Duración</span>
-                  <select
+                  <input
                     name="duration_minutes"
-                    defaultValue="60"
+                    type="number"
+                    min={15}
+                    max={480}
+                    step={15}
+                    defaultValue={profile.defaultAppointmentDuration}
                     className={inputClass}
-                  >
-                    <option value="30">30 min</option>
-                    <option value="45">45 min</option>
-                    <option value="60">1 hora</option>
-                    <option value="90">1 h 30 min</option>
-                    <option value="120">2 horas</option>
-                  </select>
+                  />
                 </label>
                 <label className="space-y-1">
                   <span className={labelClass}>Tipo</span>
                   <select
                     name="appointment_type"
-                    defaultValue={appointmentTypes[0]}
+                    defaultValue={profile.appointmentTypes[0]}
                     className={inputClass}
                   >
-                    {appointmentTypes.map((type) => (
+                    {profile.appointmentTypes.map((type) => (
                       <option key={type} value={type}>
                         {type}
                       </option>
@@ -2197,8 +2195,14 @@ export default async function ClientDetailPage({
                     | Generado: {formatDate(today)}
                   </div>
                 </div>
-                <div className="text-right text-xs font-semibold uppercase tracking-wide text-slate-400 print:text-[8px]">
-                  NutriSport Pro
+                <div className="text-right text-xs text-slate-500 print:text-[8px]">
+                  <div className="font-semibold uppercase tracking-wide">
+                    {profile.clinicName}
+                  </div>
+                  <div className="mt-0.5">{profile.displayName}</div>
+                  {profile.licenseNumber ? (
+                    <div className="mt-0.5">Col. {profile.licenseNumber}</div>
+                  ) : null}
                 </div>
               </div>
 

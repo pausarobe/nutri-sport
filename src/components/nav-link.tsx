@@ -8,6 +8,7 @@ import {
   Users,
   HandCoins,
   CircleFadingArrowUp,
+  Settings,
 } from "lucide-react";
 
 const icons = {
@@ -16,6 +17,7 @@ const icons = {
   appointments: CalendarDays,
   bono: HandCoins,
   plan: CircleFadingArrowUp,
+  settings: Settings,
 };
 
 type NavLinkProps = {

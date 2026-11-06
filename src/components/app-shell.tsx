@@ -5,23 +5,21 @@ import { SubmitButton } from "@/components/submit-button";
 import { Bell, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { profileInitials } from "@/lib/nutritionist-profile";
 
 type AppShellProps = {
   children: React.ReactNode;
   userEmail?: string;
+  displayName: string;
+  clinicName: string;
 };
 
-function accountInitials(email?: string) {
-  const account = email?.split("@")[0] ?? "NS";
-  const chunks = account.split(/[._-]+/).filter(Boolean);
-  return (
-    chunks.length > 1
-      ? `${chunks[0][0] ?? ""}${chunks[1][0] ?? ""}`
-      : account.slice(0, 2)
-  ).toUpperCase();
-}
-
-export function AppShell({ children, userEmail }: AppShellProps) {
+export function AppShell({
+  children,
+  userEmail,
+  displayName,
+  clinicName,
+}: AppShellProps) {
   return (
     <div className="min-h-screen bg-[#f8faf9] lg:flex print:block print:bg-white">
       <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[260px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r print:hidden">
@@ -67,21 +65,27 @@ export function AppShell({ children, userEmail }: AppShellProps) {
           <NavLink href="/appointments" label="Citas" icon="appointments" />
           <NavLink href="/bonos" label="Bonos" icon="bono" />
           <NavLink href="/planes" label="Planes" icon="plan" />
+          <NavLink href="/settings" label="Ajustes" icon="settings" />
         </nav>
 
         <div className="mt-auto hidden p-3 lg:block">
           <div className="rounded-2xl bg-[#f7f8ff] p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#6ffbbe] text-sm font-bold text-[#005236]">
-                {accountInitials(userEmail)}
+                {profileInitials(displayName)}
               </div>
               <div className="min-w-0">
                 <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-emerald-700">
-                  Sesión clínica
+                  {clinicName}
                 </div>
-                <div className="mt-1 truncate text-xs text-slate-600">
-                  {userEmail ?? "Nutricionista"}
+                <div className="mt-1 truncate text-sm font-semibold text-slate-800">
+                  {displayName}
                 </div>
+                {userEmail ? (
+                  <div className="mt-0.5 truncate text-[11px] text-slate-400">
+                    {userEmail}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="my-3 h-px bg-slate-200" />
