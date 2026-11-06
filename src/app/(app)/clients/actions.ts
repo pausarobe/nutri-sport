@@ -30,6 +30,7 @@ import type {
   ClientSex,
   ClientStatus,
 } from "@/lib/database.types";
+import { clientFileValidationError } from "@/lib/client-files";
 
 const FILE_BUCKET = "client-files";
 const clientTabPath = (clientId: string, tab: string) =>
@@ -1071,7 +1072,16 @@ export async function uploadClientFile(formData: FormData) {
     redirectWithMessage(
       clientTabPath(clientId, "archivos"),
       "error",
-      "Choose a file first.",
+      "Selecciona un archivo.",
+    );
+  }
+
+  const validationError = clientFileValidationError(file);
+  if (validationError) {
+    redirectWithMessage(
+      clientTabPath(clientId, "archivos"),
+      "error",
+      validationError,
     );
   }
 
@@ -1116,7 +1126,7 @@ export async function uploadClientFile(formData: FormData) {
   redirectWithMessage(
     clientTabPath(clientId, "archivos"),
     "success",
-    "File uploaded.",
+    "Archivo subido.",
   );
 }
 

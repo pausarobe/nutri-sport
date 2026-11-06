@@ -60,10 +60,10 @@ import {
   reopenClientAppointment,
   updateClientNote,
   updateClientWeight,
-  uploadClientFile,
 } from "../actions";
 import { AnthropometryModal } from "@/components/anthropometry-modal";
 import { ClientAvatarMenu } from "@/components/client-avatar-menu";
+import { ClientFileUpload } from "@/components/client-file-upload";
 
 type ClientDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -2564,24 +2564,7 @@ export default async function ClientDetailPage({
         {activeTab === "archivos" ? (
           <section id="archivos" className={cardClass}>
             <SectionTitle title="Archivos del cliente" />
-            <form
-              action={uploadClientFile}
-              className="flex flex-col gap-3 sm:flex-row"
-            >
-              <input type="hidden" name="client_id" value={client.id} />
-              <input
-                name="file"
-                type="file"
-                className="block w-full cursor-pointer text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
-              />
-              <SubmitButton
-                className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                pendingLabel="Subiendo..."
-                icon="upload"
-              >
-                Subir archivo
-              </SubmitButton>
-            </form>
+            <ClientFileUpload clientId={client.id} />
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {files.length ? (
