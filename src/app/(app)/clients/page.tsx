@@ -93,6 +93,12 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       <PageHeader
         title="Clientes"
         description="Gestiona fichas, planes, mediciones, citas, notas y archivos clínicos."
+        action={
+          <Link href="/clients/new" className="clinical-button-primary">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Nuevo cliente
+          </Link>
+        }
       />
 
       <div className="mb-4">

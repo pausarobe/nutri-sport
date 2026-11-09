@@ -1,3 +1,6 @@
+import { Plus } from "lucide-react";
+import Link from "next/link";
+
 type PageHeaderProps = {
   title: string;
   description?: string;
@@ -12,7 +15,9 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            {description}
+          </p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
