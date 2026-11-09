@@ -7,6 +7,7 @@ import {
   Download,
   Dumbbell,
   Edit3,
+  Ellipsis,
   FileText,
   Mail,
   Phone,
@@ -69,6 +70,8 @@ import {
 import { AnthropometryModal } from "@/components/anthropometry-modal";
 import { ClientAvatarMenu } from "@/components/client-avatar-menu";
 import { ClientFileUpload } from "@/components/client-file-upload";
+import { ProBadge } from "@/components/pro-badge";
+import { hasProAccess, PRO_REQUIRED_MESSAGE } from "@/lib/account-plan";
 
 type ClientDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -144,6 +147,10 @@ function resolveClientTab(value: string | undefined): ClientTab {
 
 function clientTabHref(clientId: string, tab: ClientTab) {
   return `/clients/${clientId}?tab=${tab}`;
+}
+
+function isProClientTab(tab: ClientTab) {
+  return tab === "citas" || tab === "archivos";
 }
 
 function clientAge(birthDate: string | null) {
@@ -805,9 +812,11 @@ function MeasurementInputRows({
 function AppointmentActions({
   appointment,
   clientId,
+  today,
 }: {
   appointment: ClientAppointment;
   clientId: string;
+  today: string;
 }) {
   const transitions: Array<{
     status: AppointmentStatus;
@@ -819,8 +828,7 @@ function AppointmentActions({
           {
             status: "completed",
             label: "Completar",
-            className:
-              "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+            className: "border-none text-emerald-800 hover:bg-emerald-200",
           },
           {
             status: "no_show",
@@ -835,40 +843,93 @@ function AppointmentActions({
               "border-slate-300 bg-white text-slate-600 hover:bg-slate-50",
           },
         ]
-      : [
-          {
-            status: "scheduled",
-            label: "Reabrir",
-            className:
-              "border-slate-300 bg-white text-slate-600 hover:bg-slate-50",
-          },
-        ];
+      : appointment.scheduled_date >= today
+        ? [
+            {
+              status: "scheduled",
+              label: "Reabrir",
+              className: "border-none text-slate-600 hover:bg-slate-50",
+            },
+          ]
+        : [];
+  const primaryTransition =
+    appointment.status === "scheduled" ? transitions[0] : null;
+  const secondaryTransitions =
+    appointment.status === "scheduled" ? transitions.slice(1) : transitions;
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {transitions.map((transition) => (
-        <form key={transition.status} action={updateClientAppointmentStatus}>
+    <div className="flex shrink-0 items-center gap-2">
+      {primaryTransition ? (
+        <form action={updateClientAppointmentStatus}>
           <input type="hidden" name="client_id" value={clientId} />
           <input type="hidden" name="appointment_id" value={appointment.id} />
-          <input type="hidden" name="status" value={transition.status} />
+          <input type="hidden" name="status" value={primaryTransition.status} />
           <SubmitButton
-            className={`inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${transition.className}`}
+            className={`inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${primaryTransition.className}`}
             pendingLabel="..."
           >
-            {transition.label}
+            {primaryTransition.label}
           </SubmitButton>
         </form>
-      ))}
-      <form action={deleteClientAppointment}>
-        <input type="hidden" name="client_id" value={clientId} />
-        <input type="hidden" name="appointment_id" value={appointment.id} />
-        <SubmitButton
-          className="inline-flex items-center gap-1 cursor-pointer rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-          pendingLabel="..."
+      ) : null}
+
+      <details className="group relative">
+        <summary
+          className="inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 group-open:border-slate-300 group-open:bg-slate-50 group-open:text-slate-800 [&::-webkit-details-marker]:hidden"
+          aria-label="Más opciones de la cita"
+          title="Más opciones"
         >
-          Eliminar
-        </SubmitButton>
-      </form>
+          <Ellipsis className="h-4 w-4" aria-hidden="true" />
+        </summary>
+        <div className="absolute right-0 z-20 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.14)]">
+          {secondaryTransitions.map((transition) => (
+            <form
+              key={transition.status}
+              action={updateClientAppointmentStatus}
+            >
+              <input type="hidden" name="client_id" value={clientId} />
+              <input
+                type="hidden"
+                name="appointment_id"
+                value={appointment.id}
+              />
+              <input type="hidden" name="status" value={transition.status} />
+              <SubmitButton
+                className={`inline-flex w-full cursor-pointer items-center rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
+                  transition.status === "no_show"
+                    ? "text-amber-700 hover:bg-amber-50"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+                pendingLabel="..."
+              >
+                {transition.label}
+              </SubmitButton>
+            </form>
+          ))}
+          <div
+            className={
+              secondaryTransitions.length
+                ? "mt-1 border-t border-slate-100 pt-1"
+                : ""
+            }
+          >
+            <form action={deleteClientAppointment}>
+              <input type="hidden" name="client_id" value={clientId} />
+              <input
+                type="hidden"
+                name="appointment_id"
+                value={appointment.id}
+              />
+              <SubmitButton
+                className="inline-flex w-full cursor-pointer items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                pendingLabel="..."
+              >
+                Eliminar
+              </SubmitButton>
+            </form>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -877,11 +938,13 @@ function AppointmentList({
   title,
   appointments,
   clientId,
+  today,
   empty,
 }: {
   title: string;
   appointments: ClientAppointment[];
   clientId: string;
+  today: string;
   empty: string;
 }) {
   return (
@@ -930,6 +993,7 @@ function AppointmentList({
                 <AppointmentActions
                   appointment={appointment}
                   clientId={clientId}
+                  today={today}
                 />
               </div>
             );
@@ -948,7 +1012,6 @@ export default async function ClientDetailPage({
 }: ClientDetailPageProps) {
   const { id } = await params;
   const query = await searchParams;
-  const activeTab = resolveClientTab(query?.tab);
   const supabase = await createClient();
   const [claimsResult, profileResult] = await Promise.all([
     supabase.auth.getClaims(),
@@ -958,6 +1021,10 @@ export default async function ClientDetailPage({
     profileResult.data,
     claimsResult.data?.claims?.email as string | undefined,
   );
+  const isPro = hasProAccess(profile.accountPlan);
+  const requestedTab = resolveClientTab(query?.tab);
+  const restrictedTab = !isPro && isProClientTab(requestedTab);
+  const activeTab = restrictedTab ? "ficha" : requestedTab;
   const today = isoDateInTimeZone(profile.timeZone);
 
   const [
@@ -976,11 +1043,13 @@ export default async function ClientDetailPage({
       .select("*")
       .eq("client_id", id)
       .order("created_at", { ascending: false }),
-    supabase
-      .from("client_files")
-      .select("*")
-      .eq("client_id", id)
-      .order("created_at", { ascending: false }),
+    isPro
+      ? supabase
+          .from("client_files")
+          .select("*")
+          .eq("client_id", id)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as ClientFile[], error: null }),
     supabase
       .from("client_weight_logs")
       .select("*")
@@ -992,12 +1061,14 @@ export default async function ClientDetailPage({
       .select("*")
       .eq("client_id", id)
       .order("measured_at", { ascending: false }),
-    supabase
-      .from("client_appointments")
-      .select("*")
-      .eq("client_id", id)
-      .order("scheduled_date", { ascending: true })
-      .order("scheduled_time", { ascending: true }),
+    isPro
+      ? supabase
+          .from("client_appointments")
+          .select("*")
+          .eq("client_id", id)
+          .order("scheduled_date", { ascending: true })
+          .order("scheduled_time", { ascending: true })
+      : Promise.resolve({ data: [] as ClientAppointment[], error: null }),
   ]);
 
   if (clientResult.error || !clientResult.data) notFound();
@@ -1202,7 +1273,7 @@ export default async function ClientDetailPage({
       <div className="mb-4 hidden sm:block print:hidden">
         <Link
           href="/clients"
-          className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:text-[#003626]"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 hover:text-[#003626]"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Volver a clientes
@@ -1277,6 +1348,7 @@ export default async function ClientDetailPage({
             migrationPendingMessage(appointmentsResult.error)
           }
           success={query?.success}
+          message={restrictedTab ? PRO_REQUIRED_MESSAGE : undefined}
         />
       </div>
 
@@ -1289,6 +1361,23 @@ export default async function ClientDetailPage({
           .filter((tab) => tab.key !== "informe")
           .map((tab) => {
             const selected = activeTab === tab.key;
+            const restricted = !isPro && isProClientTab(tab.key);
+
+            if (restricted) {
+              return (
+                <span
+                  key={tab.key}
+                  className="inline-flex cursor-not-allowed items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 font-medium text-slate-400"
+                  aria-disabled="true"
+                  aria-selected="false"
+                  role="tab"
+                  title={`${tab.label} está disponible con el plan Pro`}
+                >
+                  {tab.label}
+                  <ProBadge />
+                </span>
+              );
+            }
 
             return (
               <Link
@@ -1353,7 +1442,7 @@ export default async function ClientDetailPage({
                 }`}
               >
                 <div className="space-y-5">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 h-full">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                     <h3 className="mb-3 text-sm font-semibold text-slate-900">
                       Datos clave
                     </h3>
@@ -2199,6 +2288,7 @@ export default async function ClientDetailPage({
                 title="Proximas citas"
                 appointments={upcomingAppointments}
                 clientId={client.id}
+                today={today}
                 empty="Sin citas programadas."
               />
               {pendingAppointments.length ? (
@@ -2206,6 +2296,7 @@ export default async function ClientDetailPage({
                   title="Pendientes anteriores"
                   appointments={pendingAppointments}
                   clientId={client.id}
+                  today={today}
                   empty="Sin citas anteriores pendientes."
                 />
               ) : null}
@@ -2213,6 +2304,7 @@ export default async function ClientDetailPage({
                 title="Historial"
                 appointments={resolvedAppointments}
                 clientId={client.id}
+                today={today}
                 empty="Sin citas completadas, canceladas o con inasistencia."
               />
             </div>

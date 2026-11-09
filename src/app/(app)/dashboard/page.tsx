@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarClock,
   CheckCircle2,
+  Info,
   CircleAlert,
   Clock3,
   ClipboardList,
@@ -20,6 +21,8 @@ import {
 } from "@/lib/nutritionist-profile";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, initials } from "@/lib/format";
+import { ProBadge } from "@/components/pro-badge";
+import { hasProAccess } from "@/lib/account-plan";
 
 function addDays(value: string, amount: number) {
   const date = new Date(`${value}T12:00:00Z`);
@@ -161,6 +164,7 @@ export default async function DashboardPage() {
     profileResult.data,
     claimsResult.data?.claims?.email as string | undefined,
   );
+  const isPro = hasProAccess(profile.accountPlan);
   const today = isoDateInTimeZone(profile.timeZone);
   const now = new Date();
   const monthStart = `${today.slice(0, 8)}01`;
@@ -190,24 +194,28 @@ export default async function DashboardPage() {
       .from("plans")
       .select("client_id,updated_at,clients!inner(status)")
       .eq("clients.status", "active"),
-    supabase
-      .from("client_appointments")
-      .select(
-        "id,client_id,scheduled_date,scheduled_time,appointment_type,notes,clients(name)",
-      )
-      .gte("scheduled_date", today)
-      .eq("status", "scheduled")
-      .order("scheduled_date", { ascending: true })
-      .order("scheduled_time", { ascending: true })
-      .limit(100),
-    supabase
-      .from("client_appointments")
-      .select("id,client_id,scheduled_date,clients!inner(name,status)")
-      .lt("scheduled_date", today)
-      .eq("status", "scheduled")
-      .eq("clients.status", "active")
-      .order("scheduled_date", { ascending: false })
-      .limit(100),
+    isPro
+      ? supabase
+          .from("client_appointments")
+          .select(
+            "id,client_id,scheduled_date,scheduled_time,appointment_type,notes,clients(name)",
+          )
+          .gte("scheduled_date", today)
+          .eq("status", "scheduled")
+          .order("scheduled_date", { ascending: true })
+          .order("scheduled_time", { ascending: true })
+          .limit(100)
+      : Promise.resolve({ data: [], error: null }),
+    isPro
+      ? supabase
+          .from("client_appointments")
+          .select("id,client_id,scheduled_date,clients!inner(name,status)")
+          .lt("scheduled_date", today)
+          .eq("status", "scheduled")
+          .eq("clients.status", "active")
+          .order("scheduled_date", { ascending: false })
+          .limit(100)
+      : Promise.resolve({ data: [], error: null }),
     supabase
       .from("client_weight_logs")
       .select("client_id")
@@ -345,13 +353,17 @@ export default async function DashboardPage() {
       </section>
 
       {!profile.isConfigured ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            Completa tu perfil profesional para personalizar la consulta y la agenda.
+        <div className="flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-start gap-2">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              Completa tu perfil profesional para personalizar la consulta y la
+              agenda.
+            </span>
           </span>
           <Link
             href="/settings"
-            className="inline-flex shrink-0 items-center gap-1 font-semibold text-amber-900 hover:text-amber-700"
+            className="inline-flex shrink-0 items-center gap-1 font-semibold text-sky-900 hover:text-sky-700"
           >
             Configurar perfil
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -386,14 +398,37 @@ export default async function DashboardPage() {
               <ClipboardList className="h-5 w-5" aria-hidden="true" />
             </span>
             <div>
-              <h2 className="text-lg font-bold tracking-[-0.02em] text-[#003626]">
-                Próximas citas
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold tracking-[-0.02em] text-[#003626]">
+                  Próximas citas
+                </h2>
+                {!isPro ? <ProBadge /> : null}
+              </div>
               <p className="mt-0.5 text-sm text-slate-500">Agenda pendiente</p>
             </div>
           </div>
 
-          {upcomingAppointments.length ? (
+          {!isPro ? (
+            <div
+              className="mt-5 flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 text-center"
+              aria-disabled="true"
+            >
+              <ProBadge />
+              <h3 className="mt-3 font-semibold text-slate-800">
+                Agenda disponible con Pro
+              </h3>
+              <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">
+                Gestiona citas, horarios e historial de cada cliente con el plan
+                Pro.
+              </p>
+              <Link
+                href="/planes"
+                className="mt-3 text-sm font-semibold text-emerald-700 hover:text-[#003626]"
+              >
+                Ver ventajas del plan Pro
+              </Link>
+            </div>
+          ) : upcomingAppointments.length ? (
             <div className="relative mt-5 space-y-3 pl-5 before:absolute before:bottom-3 before:left-[5px] before:top-3 before:w-px before:bg-slate-200">
               {upcomingAppointments.slice(0, 2).map((appointment, index) => {
                 const parts = dateParts(
@@ -448,7 +483,7 @@ export default async function DashboardPage() {
       <section className="clinical-card overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-700">
               <CircleAlert className="h-5 w-5" aria-hidden="true" />
             </span>
             <div>
@@ -460,7 +495,7 @@ export default async function DashboardPage() {
               </p>
             </div>
           </div>
-          <span className="inline-flex min-w-8 items-center justify-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+          <span className="inline-flex min-w-8 items-center justify-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
             {attentionItems.length}
           </span>
         </div>
@@ -494,7 +529,9 @@ export default async function DashboardPage() {
             </span>
             <h3 className="mt-3 font-semibold text-slate-950">Todo al día</h3>
             <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">
-              No hay citas vencidas ni seguimientos que necesiten atención.
+              {isPro
+                ? "No hay citas vencidas ni seguimientos que necesiten atención."
+                : "No hay seguimientos que necesiten atención."}
             </p>
           </div>
         )}

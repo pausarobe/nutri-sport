@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  hasProAccess,
+  normalizeAccountPlan,
+  PRO_REQUIRED_MESSAGE,
+} from "@/lib/account-plan";
 
 export function formString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -43,4 +48,18 @@ export async function getAuthedSupabase() {
   }
 
   return { supabase, userId };
+}
+
+export async function requireProPlan(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  redirectPath: string,
+) {
+  const { data, error } = await supabase
+    .from("nutritionist_profiles")
+    .select("account_plan")
+    .maybeSingle();
+
+  if (error || !hasProAccess(normalizeAccountPlan(data?.account_plan))) {
+    redirectWithMessage(redirectPath, "error", PRO_REQUIRED_MESSAGE);
+  }
 }

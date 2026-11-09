@@ -13,7 +13,7 @@ export const appointmentStatusMeta: Record<
 > = {
   scheduled: {
     label: "Programada",
-    className: "bg-[#f2f3ff] text-indigo-700",
+    className: "bg-indigo-100 text-indigo-700",
   },
   completed: {
     label: "Completada",

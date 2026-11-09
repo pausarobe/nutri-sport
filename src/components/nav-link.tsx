@@ -10,6 +10,7 @@ import {
   CircleFadingArrowUp,
   Settings,
 } from "lucide-react";
+import { ProBadge } from "@/components/pro-badge";
 
 const icons = {
   dashboard: LayoutDashboard,
@@ -24,12 +25,27 @@ type NavLinkProps = {
   href: string;
   label: string;
   icon: keyof typeof icons;
+  disabled?: boolean;
 };
 
-export function NavLink({ href, label, icon }: NavLinkProps) {
+export function NavLink({ href, label, icon, disabled = false }: NavLinkProps) {
   const pathname = usePathname();
   const active = pathname === href || pathname.startsWith(`${href}/`);
   const Icon = icons[icon];
+
+  if (disabled) {
+    return (
+      <span
+        className="flex min-w-max cursor-not-allowed items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-400"
+        aria-disabled="true"
+        title={`${label} está disponible con el plan Pro`}
+      >
+        <Icon className="h-4 w-4" aria-hidden="true" />
+        <span>{label}</span>
+        <ProBadge className="ml-auto" />
+      </span>
+    );
+  }
 
   return (
     <Link

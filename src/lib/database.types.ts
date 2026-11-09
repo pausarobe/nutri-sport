@@ -12,6 +12,7 @@ export type Database = {
       nutritionist_profiles: {
         Row: {
           user_id: string;
+          account_plan: "free" | "pro";
           display_name: string | null;
           clinic_name: string | null;
           professional_title: string | null;
@@ -34,6 +35,7 @@ export type Database = {
         };
         Insert: {
           user_id: string;
+          account_plan?: "free" | "pro";
           display_name?: string | null;
           clinic_name?: string | null;
           professional_title?: string | null;
@@ -56,6 +58,7 @@ export type Database = {
         };
         Update: {
           user_id?: string;
+          account_plan?: "free" | "pro";
           display_name?: string | null;
           clinic_name?: string | null;
           professional_title?: string | null;
@@ -420,9 +423,99 @@ export type Database = {
           },
         ];
       };
+      client_bonuses: {
+        Row: {
+          id: string;
+          user_id: string;
+          client_id: string;
+          name: string;
+          total_sessions: number;
+          starts_on: string;
+          valid_until: string | null;
+          is_active: boolean;
+          public_token: string;
+          public_access_enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          client_id: string;
+          name: string;
+          total_sessions: number;
+          starts_on?: string;
+          valid_until?: string | null;
+          is_active?: boolean;
+          public_token?: string;
+          public_access_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          client_id?: string;
+          name?: string;
+          total_sessions?: number;
+          starts_on?: string;
+          valid_until?: string | null;
+          is_active?: boolean;
+          public_token?: string;
+          public_access_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_bonuses_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      client_bonus_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          bonus_id: string;
+          consumed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          bonus_id: string;
+          consumed_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          bonus_id?: string;
+          consumed_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_bonus_sessions_bonus_id_fkey";
+            columns: ["bonus_id"];
+            isOneToOne: false;
+            referencedRelation: "client_bonuses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      get_public_bonus: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -459,3 +552,7 @@ export type ClientAnthropometryAssessment =
   Database["public"]["Tables"]["client_anthropometry_assessments"]["Row"];
 export type ClientAppointment =
   Database["public"]["Tables"]["client_appointments"]["Row"];
+export type ClientBonus =
+  Database["public"]["Tables"]["client_bonuses"]["Row"];
+export type ClientBonusSession =
+  Database["public"]["Tables"]["client_bonus_sessions"]["Row"];

@@ -1,4 +1,8 @@
 import type { NutritionistProfile } from "@/lib/database.types";
+import {
+  normalizeAccountPlan,
+  type AccountPlan,
+} from "@/lib/account-plan";
 
 export const DEFAULT_APPOINTMENT_TYPES = [
   "Revisión mensual",
@@ -16,6 +20,7 @@ export const DEFAULT_APPOINTMENT_DURATION = 60;
 export const DEFAULT_FOLLOW_UP_DAYS = 45;
 
 export type NutritionistProfileView = {
+  accountPlan: AccountPlan;
   displayName: string;
   clinicName: string;
   professionalTitle: string;
@@ -109,6 +114,7 @@ export function normalizeNutritionistProfile(
   );
 
   return {
+    accountPlan: normalizeAccountPlan(profile?.account_plan),
     displayName,
     clinicName: profile?.clinic_name?.trim() || `Consulta de ${displayName}`,
     professionalTitle:

@@ -21,6 +21,7 @@ import {
 import {
   formString,
   getAuthedSupabase,
+  requireProPlan,
   optionalFormNumber,
   optionalFormString,
   redirectWithMessage,
@@ -36,7 +37,10 @@ import {
   appointmentStatusMeta,
 } from "@/lib/appointment-status";
 import { clientFileValidationError } from "@/lib/client-files";
-import { normalizeNutritionistProfile } from "@/lib/nutritionist-profile";
+import {
+  isoDateInTimeZone,
+  normalizeNutritionistProfile,
+} from "@/lib/nutritionist-profile";
 
 const FILE_BUCKET = "client-files";
 const clientTabPath = (clientId: string, tab: string) =>
@@ -865,6 +869,7 @@ export async function addClientAppointment(formData: FormData) {
     profile.appointmentTypes[0];
 
   if (!clientId) redirect("/clients");
+  await requireProPlan(supabase, `/clients/${clientId}`);
 
   if (!scheduledDate) {
     redirectWithMessage(
@@ -913,12 +918,43 @@ export async function updateClientAppointmentStatus(formData: FormData) {
     : null;
 
   if (!clientId || !appointmentId) redirect("/clients");
+  await requireProPlan(supabase, `/clients/${clientId}`);
   if (!status) {
     redirectWithMessage(
       clientTabPath(clientId, "citas"),
       "error",
       "El estado de la cita no es válido.",
     );
+  }
+
+  if (status === "scheduled") {
+    const [appointmentResult, profileResult] = await Promise.all([
+      supabase
+        .from("client_appointments")
+        .select("scheduled_date")
+        .eq("id", appointmentId)
+        .eq("client_id", clientId)
+        .single(),
+      supabase.from("nutritionist_profiles").select("*").maybeSingle(),
+    ]);
+    const profile = normalizeNutritionistProfile(profileResult.data);
+    const today = isoDateInTimeZone(profile.timeZone);
+
+    if (appointmentResult.error || !appointmentResult.data) {
+      redirectWithMessage(
+        clientTabPath(clientId, "citas"),
+        "error",
+        "No se ha encontrado la cita.",
+      );
+    }
+
+    if (appointmentResult.data.scheduled_date < today) {
+      redirectWithMessage(
+        clientTabPath(clientId, "citas"),
+        "error",
+        "No se puede reabrir una cita cuya fecha ya ha vencido.",
+      );
+    }
   }
 
   const { error } = await supabase
@@ -952,6 +988,7 @@ export async function deleteClientAppointment(formData: FormData) {
   const appointmentId = formString(formData, "appointment_id");
 
   if (!clientId || !appointmentId) redirect("/clients");
+  await requireProPlan(supabase, `/clients/${clientId}`);
 
   const { error } = await supabase
     .from("client_appointments")
@@ -1088,6 +1125,7 @@ export async function uploadClientFile(formData: FormData) {
   const file = formData.get("file");
 
   if (!clientId) redirect("/clients");
+  await requireProPlan(supabase, `/clients/${clientId}`);
 
   if (!(file instanceof File) || file.size === 0) {
     redirectWithMessage(
@@ -1157,6 +1195,7 @@ export async function deleteClientFile(formData: FormData) {
   const fileId = formString(formData, "file_id");
 
   if (!clientId || !fileId) redirect("/clients");
+  await requireProPlan(supabase, `/clients/${clientId}`);
 
   const { data: file, error: lookupError } = await supabase
     .from("client_files")

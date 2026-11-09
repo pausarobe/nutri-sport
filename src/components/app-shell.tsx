@@ -6,12 +6,14 @@ import { Bell, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { profileInitials } from "@/lib/nutritionist-profile";
+import { hasProAccess, type AccountPlan } from "@/lib/account-plan";
 
 type AppShellProps = {
   children: React.ReactNode;
   userEmail?: string;
   displayName: string;
   clinicName: string;
+  accountPlan: AccountPlan;
 };
 
 export function AppShell({
@@ -19,7 +21,10 @@ export function AppShell({
   userEmail,
   displayName,
   clinicName,
+  accountPlan,
 }: AppShellProps) {
+  const isPro = hasProAccess(accountPlan);
+
   return (
     <div className="min-h-screen bg-[#f8faf9] lg:flex print:block print:bg-white">
       <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[260px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r print:hidden">
@@ -62,8 +67,13 @@ export function AppShell({
         >
           <NavLink href="/dashboard" label="Dashboard" icon="dashboard" />
           <NavLink href="/clients" label="Clientes" icon="clients" />
-          <NavLink href="/appointments" label="Citas" icon="appointments" />
-          <NavLink href="/bonos" label="Bonos" icon="bono" />
+          <NavLink
+            href="/appointments"
+            label="Citas"
+            icon="appointments"
+            disabled={!isPro}
+          />
+          <NavLink href="/bonos" label="Bonos" icon="bono" disabled={!isPro} />
           <NavLink href="/planes" label="Planes" icon="plan" />
           <NavLink href="/settings" label="Ajustes" icon="settings" />
         </nav>
@@ -75,17 +85,18 @@ export function AppShell({
                 {profileInitials(displayName)}
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-emerald-700">
-                  {clinicName}
-                </div>
                 <div className="mt-1 truncate text-sm font-semibold text-slate-800">
-                  {displayName}
+                  {displayName ?? clinicName}
                 </div>
-                {userEmail ? (
-                  <div className="mt-0.5 truncate text-[11px] text-slate-400">
-                    {userEmail}
-                  </div>
-                ) : null}
+                <span
+                  className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] ${
+                    isPro
+                      ? "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200/80"
+                      : "bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  Plan {isPro ? "Pro" : "Free"}
+                </span>
               </div>
             </div>
             <div className="my-3 h-px bg-slate-200" />
@@ -103,7 +114,7 @@ export function AppShell({
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 hidden h-[76px] items-center justify-between border-b border-slate-100 bg-white/90 px-6 backdrop-blur-xl lg:flex print:hidden">
+        {/* <header className="sticky top-0 z-30 hidden h-[76px] items-center justify-between border-b border-slate-100 bg-white/90 px-6 backdrop-blur-xl lg:flex print:hidden">
           <AppBreadcrumb />
           <div className="flex items-center gap-2">
             <button
@@ -119,7 +130,7 @@ export function AppShell({
               Nuevo cliente
             </Link>
           </div>
-        </header>
+        </header> */}
 
         <main className="min-w-0 print:block">
           <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6 print:max-w-none print:px-0 print:py-3">

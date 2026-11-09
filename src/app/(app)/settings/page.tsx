@@ -1,4 +1,10 @@
-import { Clock3, IdCard, Settings2, Stethoscope } from "lucide-react";
+import {
+  Info,
+  Clock3,
+  IdCard,
+  Settings2,
+  Stethoscope,
+} from "lucide-react";
 import { Notice } from "@/components/notice";
 import { PageHeader } from "@/components/page-header";
 import { SubmitButton } from "@/components/submit-button";
@@ -41,7 +47,9 @@ function SectionHeading({
   );
 }
 
-export default async function SettingsPage({ searchParams }: SettingsPageProps) {
+export default async function SettingsPage({
+  searchParams,
+}: SettingsPageProps) {
   const query = await searchParams;
   const supabase = await createClient();
   const [claimsResult, profileResult] = await Promise.all([
@@ -70,9 +78,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       />
 
       {!profile.isConfigured && !profileResult.error ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-          Completa el nombre profesional para dejar de utilizar el identificador
-          derivado del email en el dashboard.
+        <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-800">
+          <Info className="mt-1 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Completa el nombre profesional para dejar de utilizar el identificador
+            derivado del email en el dashboard.
+          </span>
         </div>
       ) : null}
 
@@ -191,7 +202,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </label>
             <label className="space-y-1.5">
               <span className={labelClass}>Idioma y formato</span>
-              <select name="locale" defaultValue={profile.locale} className={inputClass}>
+              <select
+                name="locale"
+                defaultValue={profile.locale}
+                className={inputClass}
+              >
                 <option value="es-ES">Español</option>
                 <option value="ca-ES">Català</option>
                 <option value="en-GB">English</option>
@@ -262,7 +277,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 className={`${inputClass} min-h-32 py-3`}
               />
               <span className="block text-xs text-slate-400">
-                Escribe un tipo por línea. El primero se utilizará como opción predeterminada.
+                Escribe un tipo por línea. El primero se utilizará como opción
+                predeterminada.
               </span>
             </label>
           </div>
@@ -280,8 +296,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       </form>
 
       <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-        <Settings2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
-        El logo, avatar y firma podrán añadirse cuando se active la personalización de informes.
+        <Settings2
+          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+          aria-hidden="true"
+        />
+        El logo, avatar y firma podrán añadirse cuando se active la
+        personalización de informes.
       </div>
     </div>
   );

@@ -27,6 +27,7 @@ export default async function ProtectedLayout({
       userEmail={userEmail}
       displayName={profile.displayName}
       clinicName={profile.clinicName}
+      accountPlan={profile.accountPlan}
     >
       {children}
     </AppShell>

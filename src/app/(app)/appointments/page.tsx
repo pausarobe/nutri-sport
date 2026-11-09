@@ -8,6 +8,8 @@ import {
   normalizeNutritionistProfile,
 } from "@/lib/nutritionist-profile";
 import { createClient } from "@/lib/supabase/server";
+import { hasProAccess, PRO_REQUIRED_MESSAGE } from "@/lib/account-plan";
+import { redirectWithMessage } from "@/lib/form";
 
 export default async function AppointmentsPage() {
   const supabase = await createClient();
@@ -16,6 +18,9 @@ export default async function AppointmentsPage() {
     .select("*")
     .maybeSingle();
   const profile = normalizeNutritionistProfile(profileData);
+  if (!hasProAccess(profile.accountPlan)) {
+    redirectWithMessage("/planes", "message", PRO_REQUIRED_MESSAGE);
+  }
   const today = isoDateInTimeZone(profile.timeZone);
 
   const { data, error } = await supabase
